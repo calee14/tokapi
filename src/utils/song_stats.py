@@ -1,7 +1,7 @@
 import requests
 
-def get_spotify_series(artist_id: str, song_id: str):
-    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{artist_id}/top?idUnique={song_id}&source=spotify")
+def get_spotify_series(song_id: str):
+    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
 
     if res.status_code != 200:
         return 
@@ -11,8 +11,8 @@ def get_spotify_series(artist_id: str, song_id: str):
     if parsed_data['result'] == 'success':
         return parsed_data['chart']['seriesData'][0]['data']
 
-def get_tiktok_series(artist_id: str, song_id: str):
-    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{artist_id}/top?idUnique={song_id}&source=tiktok")
+def get_tiktok_series(song_id: str):
+    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=tiktok")
 
     if res.status_code != 200:
         return 
@@ -22,5 +22,5 @@ def get_tiktok_series(artist_id: str, song_id: str):
     if parsed_data['result'] == 'success':
         return parsed_data['chart']['seriesData'][0]['data']
 
-# print(get_spotify_series(artist_id='njtwgzci', song_id='kflctw05'))
-# print(get_tiktok_series(artist_id='njtwgzci', song_id='kflctw05'))
+# print(get_spotify_series(song_id='njtwgzci'))
+# print(get_tiktok_series(song_id='njtwgzci'))
