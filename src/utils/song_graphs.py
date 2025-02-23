@@ -59,14 +59,13 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     # Normalize the values
     spotify_series = pd.Series(spotify_values)
     tiktok_series = pd.Series(tiktok_values)
-    
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
         return [(x - min_val) / (max_val - min_val) for x in lst]
-    spotify_normalized = min_max_normalize(spotify_series)
-    tiktok_normalized = min_max_normalize(tiktok_series)
-    
+    spotify_normalized = pd.Series(min_max_normalize(spotify_series))
+    tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
+
     # Calculate the change in normalized values every 2 days
     spotify_changes = spotify_normalized.diff(periods=2).dropna()
     tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
