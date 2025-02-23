@@ -195,8 +195,8 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
         min_val = min(lst) if len(lst) else 0 
         max_val = max(lst) if len(lst) else 0
         return [(x - min_val) / (max_val - min_val + pow(1, -8)) for x in lst] # check for division by 0
-    spotify_normalized = pd.Series(get_spotify_reach_series_normalize(spotify_series))
-    tiktok_normalized = pd.Series(get_spotify_reach_series_normalize(tiktok_series))
+    spotify_normalized = pd.Series(min_max_normalize(spotify_series))
+    tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
     # Find spikes
     (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
