@@ -1,5 +1,5 @@
 import dash
-from dash import html, dcc
+from dash import html, dcc, callback, Output, Input, State
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime
@@ -39,7 +39,7 @@ fig.add_trace(go.Scatter(
     x=df_spotify_reach['date'],
     y=df_spotify_reach['normalized'],
     mode='lines',
-    name=f"{spotify_reach_result[0]} - Spotify Reach",
+    name=f"{spotify_reach_result[0]} - Spotify Playlist Reach",
     line=dict(color='green')
 ))
 
@@ -47,7 +47,7 @@ fig.add_trace(go.Scatter(
     x=df_tiktok['date'],
     y=df_tiktok['normalized'],
     mode='lines',
-    name=f"{tiktok_result[0]} - TikTok",
+    name=f"{tiktok_result[0]} - TikTok Cumulative Video",
     line=dict(color='red')
 ))
 
@@ -62,7 +62,9 @@ axis_style = dict(
     tickcolor='black'
 )
 
-artist_name = spotify_playlist_result[0]  # assuming the track's name is here
+track_name = spotify_playlist_result[0]
+artist_name = spotify_playlist_result[2]
+avatar = spotify_playlist_result[3]
 
 fig.update_layout(
     showlegend=False,
@@ -80,11 +82,15 @@ fig.update_layout(
         linewidth=2,
         **axis_style
     ),
-    title=dict(text=f"Song Statistics for {artist_name}", font=dict(size=28, color='black', family='Merriweather Sans')),
+    title=dict(
+        text=f"Song Statistics for {track_name} - {artist_name}",
+        font=dict(size=28, color='black', family='Merriweather Sans'),
+        x=0.5  # center the title
+    ),
     plot_bgcolor='white',
     paper_bgcolor='white',
-    width=700,
-    height=700
+    width=600,
+    height=600
 )
 
 # Get paired spike data with correlation coefficients; each element is now:
@@ -170,33 +176,154 @@ for t_start, t_end, s_start, s_end, corr in paired_spikes:
         font=dict(size=12, color="black")
     )
 
+# ... existing code above remains unchanged ...
+
 # Create a custom external legend (optional)
 external_legend = html.Div([
     html.Span([
-        html.Span(style={'backgroundColor': 'blue',
-                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
-        html.Span(f"{spotify_playlist_result[0]} - Spotify Playlist", style={'marginRight': '20px'})
-    ], style={'display': 'inline-block', 'marginRight': '20px'}),
-    html.Span([
         html.Span(style={'backgroundColor': 'green',
-                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
-        html.Span(f"{spotify_reach_result[0]} - Spotify Reach", style={'marginRight': '20px'})
+                           'display': 'inline-block',
+                           'width': '12px', 'height': '12px', 'marginRight': '5px'}),
+        html.Span(f"Spotify Playlist Reach", style={'marginRight': '20px'})
     ], style={'display': 'inline-block', 'marginRight': '20px'}),
     html.Span([
         html.Span(style={'backgroundColor': 'red',
-                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
-        html.Span(f"{tiktok_result[0]} - TikTok")
+                           'display': 'inline-block',
+                           'width': '12px', 'height': '12px', 'marginRight': '5px'}),
+        html.Span(f"TikTok")
     ], style={'display': 'inline-block'})
 ], style={'textAlign': 'center', 'marginBottom': '20px'})
 
-# Center the graph within the page
+# Center the graph in its own container
 graph_container = html.Div(
     dcc.Graph(figure=fig),
-    style={'display': 'flex', 'justifyContent': 'center'}
+    style={
+        'width': '700px',
+        'margin': '0 auto',
+        'display': 'flex',
+        'justifyContent': 'center'
+    }
 )
 
-layout = html.Div([
-    html.H1("Song Statistics", style={'color': 'black', 'textAlign': 'center'}),
+# Place the legend below the graph (centered too)
+legend_container = html.Div(
     external_legend,
-    graph_container
+    style={'width': '700px', 'margin': '20px auto 0', 'textAlign': 'center'}
+)
+
+description = html.Div([
+    html.P(
+        f"Playlist Reach: The combined follower number of all Spotify playlists with 200+ followers {track_name} is currently on.",
+        style={'fontSize': '16px', 'textAlign': 'center', 'margin': '10px 0'}
+    ),
+    html.P(
+        f"Videos: The total number of videos containing {track_name}.",
+        style={'fontSize': '16px', 'textAlign': 'center', 'margin': '10px 0'}
+    ),
+    html.P(
+        "-- line = the beginning of the spike, and .- line = the end of the spike.",
+        style={'fontSize': '14px', 'textAlign': 'center', 'margin': '10px 0', 'fontStyle': 'italic'}
+    )
+])
+
+# Add a dcc.Store for tracking play state
+store = dcc.Store(id="playing-store", data=False)
+
+# Create a bottom bar similar to Spotify’s player bar with back, play/pause, and forward buttons and a non-clickable avatar.
+bottom_bar = html.Div([
+    # Avatar at the left corner
+    html.Div(
+        html.Img(src=avatar, id="avatar-img", style={
+            'width': '50px',
+            'height': '50px',
+            'borderRadius': '50%',
+            'objectFit': 'cover'
+        }),
+        style={'position': 'absolute', 'left': '20px', 'top': '50%', 'transform': 'translateY(-50%)'}
+    ),
+    # Playback controls centered in the bar
+    html.Div([
+        html.Button("⏮", id="back-btn", style={
+            'fontSize': '30px',
+            'background': 'none',
+            'border': 'none',
+            'color': 'white',
+            'width': '50px',
+            'height': '50px'
+        }),
+        html.Button("▶", id="playpause-btn", style={
+            'fontSize': '30px',
+            'background': 'none',
+            'border': 'none',
+            'color': 'white',
+            'width': '50px',      # fixed size so layout doesn't shift
+            'height': '50px',
+            'margin': '0 20px'
+        }),
+        html.Button("⏭", id="forward-btn", style={
+            'fontSize': '30px',
+            'background': 'none',
+            'border': 'none',
+            'color': 'white',
+            'width': '50px',
+            'height': '50px'
+        })
+    ], style={'margin': '0 auto', 'display': 'flex', 'alignItems': 'center'})
+], style={
+    'position': 'fixed',
+    'bottom': '0',
+    'left': '0',
+    'width': '100%',
+    'height': '70px',
+    'backgroundColor': '#121212',
+    'display': 'flex',
+    'alignItems': 'center',
+    'justifyContent': 'center',
+    'zIndex': '1000',
+    'padding': '0 20px'
+})
+
+layout = html.Div([
+    html.H1("Song Statistics", style={
+        'color': 'black',
+        'textAlign': 'center',
+        'marginBottom': '20px'
+    }),
+    graph_container,
+    legend_container,
+    description,
+    bottom_bar,
+    store
 ], style={'margin': '20px'})
+
+# Callback to toggle play/pause state and update the play/pause button icon.
+@callback(
+    [Output("playing-store", "data"),
+     Output("playpause-btn", "children")],
+    [Input("playpause-btn", "n_clicks")],
+    [State("playing-store", "data")],
+    prevent_initial_call=True
+)
+def toggle_play(n_clicks, playing):
+    if playing:
+        return False, "▶"
+    return True, "⏸"
+
+# Callback to update the avatar styling to animate a slow spin when playing.
+@callback(
+    Output("avatar-img", "style"),
+    [Input("playing-store", "data")]
+)
+def update_avatar(playing):
+    base_style = {
+        'width': '50px',
+        'height': '50px',
+        'borderRadius': '50%',
+        'objectFit': 'cover',
+        'marginLeft': '20px'
+    }
+    if playing:
+        base_style["animation"] = "spin 4s linear infinite"
+    else:
+        base_style["animation"] = "none"
+    return base_style

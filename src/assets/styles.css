@@ -7,3 +7,8 @@ body {
 h1, h2, h3, h4, h5, h6 {
     font-family: Georgia, serif;
 }
+/* Avatar spin */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
