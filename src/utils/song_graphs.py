@@ -35,11 +35,12 @@ def get_tiktok_series(song_id: str):
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
+        print("last_90_data", last_90_data)
         return track_name, last_90_data
 
 def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     # Retrieve series data
-    spotify_data = get_spotify_playlist_series(spotify_id)[1]
+    spotify_data = get_spotify_reach_series(spotify_id)[1]
     tiktok_data = get_tiktok_series(tiktok_id)[1]
 
     if spotify_data is None or tiktok_data is None:
@@ -67,7 +68,7 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
 
     # Calculate the average of all 2-day derivatives
-    avg_spotify_change = spotify_changes.mean() + spotify_changes.std() * 2
+    avg_spotify_change = spotify_changes.mean() + spotify_changes.std() * 3
     avg_tiktok_change = tiktok_changes.mean() + tiktok_changes.std()
 
     # Identify spikes where the 2-day derivative is greater than the average
@@ -100,7 +101,8 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
 
 def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Retrieve series data
-    spotify_data = get_spotify_playlist_series(spotify_id)[1]
+    spotify_data = get_spotify_reach_series(spotify_id)[1]
+    song_name = get_spotify_reach_series(spotify_id)[0]
     tiktok_data = get_tiktok_series(tiktok_id)[1]
 
     if spotify_data is None or tiktok_data is None:
@@ -120,11 +122,18 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Normalize the values
     spotify_series = pd.Series(spotify_values)
     tiktok_series = pd.Series(tiktok_values)
-    spotify_normalized = spotify_series / spotify_series.max()
-    tiktok_normalized = tiktok_series / tiktok_series.max()
+    def min_max_normalize(lst):
+        min_val = min(lst)
+        max_val = max(lst)
+        return [(x - min_val) / (max_val - min_val) for x in lst]
+    spotify_normalized = min_max_normalize(spotify_series)
+    tiktok_normalized = min_max_normalize(tiktok_series)
 
     # Find spikes
     spotify_spikes, tiktok_spikes = find_spikes_in_normalized_series(spotify_id, tiktok_id)
+    
+    print("spotify_spikes", spotify_spikes)
+    print("tiktok_spikes", tiktok_spikes)
 
     # Plotting both normalized series using actual dates on the x-axis
     plt.figure(figsize=(10, 5))
@@ -141,14 +150,11 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
 
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
-    plt.title('Normalized Song Data from Spotify and TikTok with Spikes')
+    plt.title(f"Spotify and TikTok Series for {song_name}")
     plt.legend()
     plt.show()
 
 # Example usage:
 if __name__ == "__main__":
-    spotify_spikes, tiktok_spikes = find_spikes_in_normalized_series(spotify_id='njtwgzci', tiktok_id='njtwgzci')
-    print("Spotify Spikes:", spotify_spikes)
-    print("TikTok Spikes:", tiktok_spikes)
-    plot_normalized_series_with_spikes(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+    plot_normalized_series_with_spikes(spotify_id='2lmeytah', tiktok_id='2lmeytah')
 # %%
