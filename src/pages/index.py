@@ -94,6 +94,11 @@ fig.update_layout(
     height=700   # Increased height to keep the graph square
 )
 
+# Define global styles for the entire app
+app_styles = {
+    'fontFamily': 'Georgia',
+}
+
 # Create a custom external legend
 external_legend = html.Div([
     html.Span([
@@ -123,4 +128,4 @@ layout = html.Div([
     html.H1("Song Statistics", style={'color': 'black', 'textAlign': 'center'}),
     external_legend,
     graph_container
-], style={'margin': '20px'})
+], style={'margin': '20px', **app_styles})

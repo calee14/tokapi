@@ -1,4 +1,3 @@
-#%%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -223,4 +222,3 @@ if __name__ == "__main__":
     print("\nTikTok Spike Normalized Values (start, end, norm_start, norm_end):")
     for spike in tiktok_spike_values:
         print(spike)
-# %%

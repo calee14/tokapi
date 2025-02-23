@@ -2,7 +2,9 @@ from dash import Dash, html, dcc, Output, Input
 import dash
 import plotly.express as px
 
-external_css=[]
+external_css=[
+    'https://fonts.cdnfonts.com/css/georgia',
+]
 external_scripts = []
 
 app = Dash(__name__, pages_folder='pages', use_pages=True, external_stylesheets=external_css, external_scripts=external_scripts,suppress_callback_exceptions=True)
