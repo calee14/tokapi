@@ -13,46 +13,51 @@ import pandas as pd
 # ---------------------------
 # STEP 1. Import the raw series data and prepare it for plotting
 # ---------------------------
-spotify_id = 'bjux4okf'
-tiktok_id = 'bjux4okf'
+spotify_id = 'njtwgzci'
+tiktok_id = 'njtwgzci'
 
 # Get raw series (for plotting background time-series)
-spotify_info = get_spotify_reach_series(spotify_id)
-tiktok_info = get_tiktok_series(tiktok_id)
-if spotify_info is None or tiktok_info is None:
+    # Retrieve series data
+spotify_data = get_spotify_reach_series(spotify_id)[1]
+song_name = get_spotify_reach_series(spotify_id)[0]
+tiktok_data = get_tiktok_series(tiktok_id)[1]
+
+if spotify_data is None or tiktok_data is None:
     print("Error fetching one or both data series.")
-    exit()
 
-song_name = spotify_info[0]
-
-# Extract data
-spotify_data = spotify_info[1]  # list of [timestamp, value]
-tiktok_data = tiktok_info[1]
+# Extract timestamps and values (assumes [timestamp, value] structure)
+spotify_timestamps = [entry[0] for entry in spotify_data]
+tiktok_timestamps = [entry[0] for entry in tiktok_data]
+spotify_values = [entry[1] for entry in spotify_data]
+tiktok_values = [entry[1] for entry in tiktok_data]
 
 # Create pandas DataFrames for time series
-df_spotify = pd.DataFrame(spotify_data, columns=['timestamp', 'value'])
-df_spotify['date'] = pd.to_datetime(df_spotify['timestamp'], unit='ms')
-df_tiktok = pd.DataFrame(tiktok_data, columns=['timestamp', 'value'])
-df_tiktok['date'] = pd.to_datetime(df_tiktok['timestamp'], unit='ms')
+# Convert timestamps to datetime objects (assuming epoch in ms)
+spotify_dates = pd.to_datetime(spotify_timestamps, unit='ms')
+tiktok_dates = pd.to_datetime(tiktok_timestamps, unit='ms')
 
-# Normalize the values for plotting (min-max normalization)
-df_spotify['normalized'] = (df_spotify['value'] - df_spotify['value'].min()) / (df_spotify['value'].max() - df_spotify['value'].min())
-df_tiktok['normalized'] = (df_tiktok['value'] - df_tiktok['value'].min()) / (df_tiktok['value'].max() - df_tiktok['value'].min())
+# Normalize the values
+spotify_series = pd.Series(spotify_values)
+tiktok_series = pd.Series(tiktok_values)
+def min_max_normalize(lst):
+    min_val = min(lst)
+    max_val = max(lst)
+    return [(x - min_val) / (max_val - min_val + pow(1, -8)) for x in lst] # check for division by 0
+spotify_normalized = pd.Series(min_max_normalize(spotify_series))
+tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
-# ---------------------------
-# STEP 2. Retrieve spike intervals and normalized spike values
-# ---------------------------
-# find_spikes_in_normalized_series returns a tuple:
-# ((spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values))
-(spi_intervals, spi_norm_values), (tti_intervals, tti_norm_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
+# Find spikes
+(spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
 
-causation = determine_causation(spi_intervals, tti_intervals)
+causation = determine_causation(spotify_spike_dates, tiktok_spike_dates)
 
 paired_spikes = []
 for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
     if spotify_type == 'spotify' and tiktok_type == 'tiktok':
-        start_val = df_spotify['normalized'].loc[df_spotify['date'] == spotify_spike[0]].values[0]
-        end_val = df_tiktok['normalized'].loc[df_tiktok['date'] == tiktok_spike[0]].values[0]
+        start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
+        end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[0]].values[0]
+        print("spotify > tiktok")
+        print(f"start_val: {start_val}, end_val: {end_val}")
         plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
         plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
         plt.axvline(x=tiktok_spike[0], color='red', linestyle='--', alpha=0.5)
@@ -60,12 +65,14 @@ for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
         # plt.axvspan(spotify_spike[0], tiktok_spike[0], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
         paired_spikes.append((spotify_spike[0], tiktok_spike[0], abs(tiktok_spike[0] - spotify_spike[0]).days))
     elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
-        start_val = df_tiktok['normalized'].loc[df_tiktok['date'] == tiktok_spike[0]].values[0]
-        end_val = df_spotify['normalized'].loc[df_spotify['date'] == spotify_spike[0]].values[0]
-        plt.axvline(x=tiktok_spike[0], color='red', linestyle='--', alpha=0.5)
-        plt.scatter([tiktok_spike[0]], [start_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][0] else "")
-        plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
-        plt.scatter([spotify_spike[0]], [end_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][2] else "")
+        start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
+        end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[0]].values[0]
+        print("tiktok > spotify")
+        print(f"start_val: {start_val}, end_val: {end_val}")
+        plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
+        plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
+        plt.axvline(x=tiktok_spike[0], color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([tiktok_spike[0]], [end_val], color='blue', label='Spotify Critical Point' if tiktok_spike == causation[0][2] else "")
         # plt.axvspan(tiktok_spike[0], spotify_spike[0], color='green', alpha=0.3, label='Time Delta' if tiktok_spike == causation[0][0] else "")
         paired_spikes.append((tiktok_spike[0], spotify_spike[0], abs(spotify_spike[0] - tiktok_spike[0]).days))
 
@@ -74,8 +81,8 @@ for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
 # ---------------------------
 
 # Plot the background normalized time series for Spotify and TikTok
-plt.plot(df_spotify['date'], df_spotify['normalized'], label='Spotify (Reach)', color='blue', alpha=0.7)
-plt.plot(df_tiktok['date'], df_tiktok['normalized'], label='TikTok', color='red', alpha=0.7)
+plt.plot(spotify_dates, spotify_normalized, label='Spotify (Reach)', color='blue', alpha=0.7)
+plt.plot(spotify_dates, tiktok_normalized, label='TikTok', color='red', alpha=0.7)
 
 # Format x-axis for dates
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -83,10 +90,6 @@ plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 
 # Plot vertical lines (spike markers) and annotate the absolute delay for each paired spike.
 for s_time, t_time, delay in paired_spikes:
-    # Plot spike markers as vertical lines
-    plt.axvline(s_time, color='blue', linestyle='--', alpha=0.8, label='Spotify Spike')
-    plt.axvline(t_time, color='red', linestyle='--', alpha=0.8, label='TikTok Spike')
-    
     # Calculate midpoint between s_time and t_time for annotation
     mid_point = s_time + (t_time - s_time) / 2
     # Annotate the absolute delay value
