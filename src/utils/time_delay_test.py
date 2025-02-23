@@ -1,7 +1,9 @@
+#%%
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.dates as mdates
 
 # MIN_EPOCH_SEC = 1732406400  # minimum epoch time in seconds
 # MIN_EPOCH_MS = MIN_EPOCH_SEC * 1000  # convert to milliseconds
@@ -13,7 +15,7 @@ def get_spotify_playlist_series(song_id: str):
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
         return track_name, last_90_data
 
 def get_spotify_reach_series(song_id: str):
@@ -23,7 +25,7 @@ def get_spotify_reach_series(song_id: str):
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][1]['data'][-90:]
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
         return track_name, last_90_data
 
 def get_tiktok_series(song_id: str):
@@ -33,7 +35,7 @@ def get_tiktok_series(song_id: str):
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
         return track_name, last_90_data
 
 def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
@@ -61,7 +63,7 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
-        return [(x - min_val) / (max_val - min_val) for x in lst]
+        return [(x - min_val) / (max_val - min_val) for x in lst] # check for division by 0
     spotify_normalized = pd.Series(min_max_normalize(spotify_series))
     tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
@@ -157,7 +159,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
-        return [(x - min_val) / (max_val - min_val) for x in lst]
+        return [(x - min_val) / (max_val - min_val) for x in lst] # check for division by 0
     spotify_normalized = pd.Series(min_max_normalize(spotify_series))
     tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
@@ -203,24 +205,79 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     plt.legend()
     plt.show()
 
+'''
 # Example usage:
 if __name__ == "__main__":
-    spotify_id = '2lmeytah'
-    tiktok_id = '2lmeytah'
-    
-    # Plot the graphs with spikes
-    plot_normalized_series_with_spikes(spotify_id, tiktok_id)
-    
-    # Get and print the normalized spike values (using the already parsed data)
-    spotify_spike_values, tiktok_spike_values = find_spikes_in_normalized_series(spotify_id, tiktok_id)
-    print("\nSpotify Spike Normalized Values (start, end, norm_start, norm_end):")
-    for spike in spotify_spike_values:
-        print(spike)
-    print("\nTikTok Spike Normalized Values (start, end, norm_start, norm_end):")
-    for spike in tiktok_spike_values:
-        print(spike)
-    # plot_normalized_series_with_spikes(spotify_id='2lmeytah', tiktok_id='2lmeytah')
-
-    plot_normalized_series_with_spikes(spotify_id='nv4xpgkm', tiktok_id='nv4xpgkm')
-    plot_normalized_series_with_spikes(spotify_id='bjux4okf', tiktok_id='bjux4okf')
+    plot_normalized_series_with_spikes(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+'''
 # %%
+
+def pair_spikes(spotify_id, tiktok_id):
+    """
+    Retrieve spike intervals from Spotify and TikTok data, pair the spikes based on their start times,
+    and compute the absolute delay (in days) for each pair.
+    
+    Parameters:
+        spotify_id (str): The Spotify ID for the song.
+        tiktok_id (str): The TikTok ID for the song.
+        
+    Returns:
+        list of tuples: Each tuple contains:
+            (tiktok_spike_start (datetime), spotify_spike_start (datetime), delay_days (float))
+    """
+    # Retrieve spike intervals and normalized spike values
+    (spi_intervals, spi_norm_values), (tti_intervals, tti_norm_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
+    
+    # Extract the start timestamps from each spike interval
+    spotify_start_times = [interval[0] for interval in spi_intervals]
+    tiktok_start_times = [interval[0] for interval in tti_intervals]
+    
+    # Copy available Spotify spike start times so each is only paired once
+    available_spotify = spotify_start_times.copy()
+    
+    paired_spikes = []  # Each element: (TikTok spike start, Spotify spike start, absolute delay in days)
+    for t_time in tiktok_start_times:
+        nearest_spotify = None
+        min_diff = None
+        for s_time in available_spotify:
+            diff = abs((s_time - t_time).total_seconds())
+            if min_diff is None or diff < min_diff:
+                min_diff = diff
+                nearest_spotify = s_time
+        if nearest_spotify is not None:
+            # Compute absolute delay in days
+            delay_days = abs((nearest_spotify - t_time).total_seconds()) / 86400.0
+            paired_spikes.append((t_time, nearest_spotify, delay_days))
+            available_spotify.remove(nearest_spotify)
+    
+    return paired_spikes
+
+'''
+# Example usage:
+paired_spikes = pair_spikes(spotify_id = 'njtwgzci', tiktok_id = 'njtwgzci')
+print("Paired spikes (TikTok spike start, Spotify spike start, absolute time delay in days):")
+for pair in paired_spikes:
+    if pair[2] < 20:
+        print(pair)
+'''
+
+with open("src/utils/songs", "r") as file:
+    codes = file.read().splitlines()
+    print(codes)
+
+total_days = 0
+
+for code in codes:
+    series = get_spotify_reach_series(code)[1]
+    series2 = get_tiktok_series(code)[1]
+    if not (series and series2):
+        continue
+    paired_spikes = pair_spikes(code, code)
+    for pair in paired_spikes:
+        if pair[2] < 20:
+            print(pair)
+            total_days = pair[2] + total_days
+            print(total_days)
+
+avg_days = total_days/len(codes)
+print('avg_days', avg_days)

@@ -2,7 +2,8 @@
 from song_graphs import (
     get_spotify_reach_series,
     get_tiktok_series,
-    find_spikes_in_normalized_series
+    find_spikes_in_normalized_series,
+    determine_causation
 )
 from datetime import datetime
 import matplotlib.pyplot as plt
@@ -12,8 +13,8 @@ import pandas as pd
 # ---------------------------
 # STEP 1. Import the raw series data and prepare it for plotting
 # ---------------------------
-spotify_id = 'njtwgzci'
-tiktok_id = 'njtwgzci'
+spotify_id = 'bjux4okf'
+tiktok_id = 'bjux4okf'
 
 # Get raw series (for plotting background time-series)
 spotify_info = get_spotify_reach_series(spotify_id)
@@ -45,69 +46,62 @@ df_tiktok['normalized'] = (df_tiktok['value'] - df_tiktok['value'].min()) / (df_
 # ((spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values))
 (spi_intervals, spi_norm_values), (tti_intervals, tti_norm_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
 
-# ---------------------------
-# STEP 3. Pair the spikes to compute the time delays (using absolute delay)
-# ---------------------------
-# Extract the start timestamps from each spike interval
-spotify_start_times = [interval[0] for interval in spi_intervals]
-tiktok_start_times = [interval[0] for interval in tti_intervals]
+causation = determine_causation(spi_intervals, tti_intervals)
 
-# Copy available Spotify spike start times so each is only paired once
-available_spotify = spotify_start_times.copy()
-
-paired_spikes = []  # Each element is (TikTok spike start, Spotify spike start, absolute delay in days)
-for t_time in tiktok_start_times:
-    nearest_spotify = None
-    min_diff = None
-    for s_time in available_spotify:
-        diff = abs((s_time - t_time).total_seconds())
-        if min_diff is None or diff < min_diff:
-            min_diff = diff
-            nearest_spotify = s_time
-    if nearest_spotify is not None:
-        # Compute absolute delay in days
-        delay_days = abs((nearest_spotify - t_time).total_seconds()) / 86400.0
-        paired_spikes.append((t_time, nearest_spotify, delay_days))
-        available_spotify.remove(nearest_spotify)
-
-print("Paired spikes (TikTok spike start, Spotify spike start, absolute time delay in days):")
-for pair in paired_spikes:
-    print(pair)
+paired_spikes = []
+for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
+    if spotify_type == 'spotify' and tiktok_type == 'tiktok':
+        start_val = df_spotify['normalized'].loc[df_spotify['date'] == spotify_spike[0]].values[0]
+        end_val = df_tiktok['normalized'].loc[df_tiktok['date'] == tiktok_spike[0]].values[0]
+        plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
+        plt.axvline(x=tiktok_spike[0], color='red', linestyle='--', alpha=0.5)
+        plt.scatter([tiktok_spike[0]], [end_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][2] else "")
+        # plt.axvspan(spotify_spike[0], tiktok_spike[0], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
+        paired_spikes.append((spotify_spike[0], tiktok_spike[0], abs(tiktok_spike[0] - spotify_spike[0]).days))
+    elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
+        start_val = df_tiktok['normalized'].loc[df_tiktok['date'] == tiktok_spike[0]].values[0]
+        end_val = df_spotify['normalized'].loc[df_spotify['date'] == spotify_spike[0]].values[0]
+        plt.axvline(x=tiktok_spike[0], color='red', linestyle='--', alpha=0.5)
+        plt.scatter([tiktok_spike[0]], [start_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][0] else "")
+        plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([spotify_spike[0]], [end_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][2] else "")
+        # plt.axvspan(tiktok_spike[0], spotify_spike[0], color='green', alpha=0.3, label='Time Delta' if tiktok_spike == causation[0][0] else "")
+        paired_spikes.append((tiktok_spike[0], spotify_spike[0], abs(spotify_spike[0] - tiktok_spike[0]).days))
 
 # ---------------------------
 # STEP 4. Plot the time series and overlay the spike pairs with absolute delay annotations.
 # ---------------------------
-fig, ax = plt.subplots(figsize=(12, 6))
 
 # Plot the background normalized time series for Spotify and TikTok
-ax.plot(df_spotify['date'], df_spotify['normalized'], label='Spotify (Reach)', color='blue', alpha=0.7)
-ax.plot(df_tiktok['date'], df_tiktok['normalized'], label='TikTok', color='red', alpha=0.7)
+plt.plot(df_spotify['date'], df_spotify['normalized'], label='Spotify (Reach)', color='blue', alpha=0.7)
+plt.plot(df_tiktok['date'], df_tiktok['normalized'], label='TikTok', color='red', alpha=0.7)
 
 # Format x-axis for dates
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.gca().xaxis.set_major_locator(mdates.AutoDateLocator())
 
 # Plot vertical lines (spike markers) and annotate the absolute delay for each paired spike.
-for t_time, s_time, delay in paired_spikes:
+for s_time, t_time, delay in paired_spikes:
     # Plot spike markers as vertical lines
-    ax.axvline(t_time, color='red', linestyle='--', alpha=0.8, label='TikTok Spike')
-    ax.axvline(s_time, color='blue', linestyle='--', alpha=0.8, label='Spotify Spike')
+    plt.axvline(s_time, color='blue', linestyle='--', alpha=0.8, label='Spotify Spike')
+    plt.axvline(t_time, color='red', linestyle='--', alpha=0.8, label='TikTok Spike')
     
-    # Calculate midpoint between t_time and s_time for annotation
-    mid_point = t_time + (s_time - t_time) / 2
+    # Calculate midpoint between s_time and t_time for annotation
+    mid_point = s_time + (t_time - s_time) / 2
     # Annotate the absolute delay value
-    ax.annotate(f"{delay:.2f} days", xy=(mid_point, 0.5), xytext=(mid_point, 0.7),
-                arrowprops=dict(arrowstyle="->", color='black'),
-                ha='center', fontsize=10, color='black')
+    plt.annotate(f"{delay:.2f} days", xy=(mid_point, 0.5), xytext=(mid_point, 0.7),
+                 arrowprops=dict(arrowstyle="->", color='black'),
+                 ha='center', fontsize=10, color='black')
 
 # Remove duplicate legend entries
 handles, labels = plt.gca().get_legend_handles_labels()
 by_label = dict(zip(labels, handles))
-ax.legend(by_label.values(), by_label.keys())
+plt.legend(by_label.values(), by_label.keys())
 
-ax.set_title(f"Absolute Time Delay Between Paired Spikes for {song_name}")
-ax.set_xlabel("Date")
-ax.set_ylabel("Normalized Value")
+plt.title(f"Absolute Time Delay Between Paired Spikes for {song_name}")
+plt.xlabel("Date")
+plt.ylabel("Normalized Value")
 
 plt.xticks(rotation=45)
 plt.tight_layout()
