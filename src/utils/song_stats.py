@@ -1,7 +1,7 @@
 import requests
 import pandas
 
-def get_spotify_reach_series(song_id: str):
+def get_spotify_playlist_series(song_id: str):
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
 
     if res.status_code != 200:
