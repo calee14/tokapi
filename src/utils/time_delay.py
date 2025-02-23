@@ -52,29 +52,29 @@ tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 causation = determine_causation(spotify_spike_dates, tiktok_spike_dates)
 
 paired_spikes = []
-for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
-    if spotify_type == 'spotify' and tiktok_type == 'tiktok':
-        start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
-        end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[0]].values[0]
+for (start_spike, start_type, end_spike, end_type) in causation:
+    if start_type == 'spotify' and end_type == 'tiktok':
+        start_val = spotify_normalized.loc[spotify_dates == start_spike[0]].values[0]
+        end_val = tiktok_normalized.loc[tiktok_dates == end_spike[0]].values[0]
         print("spotify > tiktok")
         print(f"start_val: {start_val}, end_val: {end_val}")
-        plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
-        plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
-        plt.axvline(x=tiktok_spike[0], color='red', linestyle='--', alpha=0.5)
-        plt.scatter([tiktok_spike[0]], [end_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][2] else "")
+        plt.axvline(x=start_spike[0], color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([start_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if start_spike == causation[0][0] else "")
+        plt.axvline(x=end_spike[0], color='red', linestyle='--', alpha=0.5)
+        plt.scatter([end_spike[0]], [end_val], color='red', label='TikTok Critical Point' if end_spike == causation[0][2] else "")
         # plt.axvspan(spotify_spike[0], tiktok_spike[0], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
-        paired_spikes.append((spotify_spike[0], tiktok_spike[0], abs(tiktok_spike[0] - spotify_spike[0]).days))
-    elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
-        start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
-        end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[0]].values[0]
+        paired_spikes.append((start_spike[0], end_spike[0], abs(end_spike[0] - start_spike[0]).days))
+    elif start_type == 'tiktok' and end_type == 'spotify':
+        start_val = tiktok_normalized.loc[tiktok_dates == start_spike[0]].values[0]
+        end_val = spotify_normalized.loc[spotify_dates == end_spike[0]].values[0]
         print("tiktok > spotify")
         print(f"start_val: {start_val}, end_val: {end_val}")
-        plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
-        plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
-        plt.axvline(x=tiktok_spike[0], color='blue', linestyle='--', alpha=0.5)
-        plt.scatter([tiktok_spike[0]], [end_val], color='blue', label='Spotify Critical Point' if tiktok_spike == causation[0][2] else "")
+        plt.axvline(x=start_spike[0], color='red', linestyle='--', alpha=0.5)
+        plt.scatter([start_spike[0]], [start_val], color='red', label='TikTok Critical Point' if start_spike == causation[0][0] else "")
+        plt.axvline(x=end_spike[0], color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([end_spike[0]], [end_val], color='blue', label='Spotify Critical Point' if end_spike == causation[0][2] else "")
         # plt.axvspan(tiktok_spike[0], spotify_spike[0], color='green', alpha=0.3, label='Time Delta' if tiktok_spike == causation[0][0] else "")
-        paired_spikes.append((tiktok_spike[0], spotify_spike[0], abs(spotify_spike[0] - tiktok_spike[0]).days))
+        paired_spikes.append((end_spike[0], start_spike[0], abs(start_spike[0] - end_spike[0]).days))
 
 # ---------------------------
 # STEP 4. Plot the time series and overlay the spike pairs with absolute delay annotations.
