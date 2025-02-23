@@ -1,0 +1,1 @@
+#now i want to develop of a correlation coefficient. find me the normalized values for when the spike starts and ends for the paired spotify andn tiktok spikes
