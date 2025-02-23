@@ -206,5 +206,5 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
 
 # Example usage:
 if __name__ == "__main__":
-    plot_normalized_series_with_spikes(spotify_id='nv4xpgkm', tiktok_id='nv4xpgkm')
+    plot_normalized_series_with_spikes(spotify_id='bjux4okf', tiktok_id='bjux4okf')
 # %%
