@@ -1,37 +1,77 @@
 #%%
+import os
 import requests
 import pandas as pd
 import plotly.graph_objects as go
 
 def get_spotify_playlist_series(song_id: str):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, f"../../spotify_playlists_dataset/spotify_playlist_series_{song_id}.csv")
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r') as f:
+            lines = f.readlines()
+            track_name = lines[0].strip()
+            data = [(int(line.split(',')[0]), int(line.split(',')[1])) for line in lines[1:-2] if line.strip()]
+            artist_name = lines[-2].strip()
+            avatar = lines[-1].strip()
+        return track_name, data, artist_name, avatar
+
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
     if res.status_code != 200:
         return None
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
-        return track_name, last_90_data
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
+        artist_name = parsed_data['trackInfo']['artistName']
+        avatar = parsed_data['trackInfo']['avatar']
+        return track_name, last_90_data, artist_name, avatar
 
 def get_spotify_reach_series(song_id: str):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, f"../../spotify_reach_dataset/spotify_reach_series_{song_id}.csv")
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r') as f:
+            lines = f.readlines()
+            track_name = lines[0].strip()
+            data = [(int(line.split(',')[0]), int(line.split(',')[1])) for line in lines[1:-2] if line.strip()]
+            artist_name = lines[-2].strip()
+            avatar = lines[-1].strip()
+        return track_name, data, artist_name, avatar
+
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
     if res.status_code != 200:
         return None
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][1]['data'][-90:]
-        return track_name, last_90_data
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
+        artist_name = parsed_data['trackInfo']['artistName']
+        avatar = parsed_data['trackInfo']['avatar']
+        return track_name, last_90_data, artist_name, avatar
 
 def get_tiktok_series(song_id: str):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, f"../../tiktok_series_dataset/tiktok_series_{song_id}.csv")
+    if os.path.exists(csv_path):
+        with open(csv_path, 'r') as f:
+            lines = f.readlines()
+            track_name = lines[0].strip()
+            data = [(int(line.split(',')[0]), int(line.split(',')[1])) for line in lines[1:-2] if line.strip()]
+            artist_name = lines[-2].strip()
+            avatar = lines[-1].strip()
+        return track_name, data, artist_name, avatar
+
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=tiktok")
     if res.status_code != 200:
         return None
     parsed_data = res.json()
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
-        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
-        return track_name, last_90_data
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:] if len(parsed_data['chart']['seriesData'][0]['data']) >= 90 else parsed_data['chart']['seriesData'][0]['data'][len(parsed_data['chart']['seriesData'][0]['data']):]
+        artist_name = parsed_data['trackInfo']['artistName']
+        avatar = parsed_data['trackInfo']['avatar']
+        return track_name, last_90_data, artist_name, avatar
 
 def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     # Retrieve series data
@@ -136,7 +176,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
 
     if spotify_data is None or tiktok_data is None:
         print("Error fetching one or both data series.")
-        return None
+        return None, None, None, None
 
     # Extract timestamps and values (assumes [timestamp, value] structure)
     spotify_timestamps = [entry[0] for entry in spotify_data]
@@ -303,10 +343,10 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
         paper_bgcolor='white'
     )
 
-    return fig
+    return fig, spotify_dates, spotify_normalized, tiktok_dates, tiktok_normalized
 
 # Example usage:
 if __name__ == "__main__":
-    fig = plot_normalized_series_with_spikes(spotify_id='c7vi4fny', tiktok_id='c7vi4fny')
+    fig, spotify_dates, spotify_normalized, tiktok_dates, tiktok_normalized = plot_normalized_series_with_spikes(spotify_id='c7vi4fny', tiktok_id='c7vi4fny')
     fig.show()
 # %%
