@@ -237,3 +237,58 @@ def read_csv_file(folder, code):
 
 #print(read_csv_file('spotify_playlists_dataset', 'nv4xpgkm'))
 
+def parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4xpgkm'):
+    # Construct file name and full file path
+    file_name = f"spotify_playlist_series_{file_id}.csv"
+    file_path = os.path.join(folder, file_name)
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+        
+        if len(lines) < 3:
+            raise ValueError("CSV file does not have the expected structure.")
+        
+        # Extract the components based on the assumed file structure
+        playlist_title = lines[0]
+        artist = lines[-2]
+        image_url = lines[-1]
+        
+        # Data rows are assumed to be between the first and the last two lines
+        data_lines = lines[1:-2]
+        data = []
+        for line in data_lines:
+            parts = line.split(',')
+            if len(parts) == 2:
+                try:
+                    timestamp = int(parts[0])
+                    value = int(parts[1])
+                    data.append((timestamp, value))
+                except ValueError:
+                    print(f"Skipping invalid data row: {line}")
+            else:
+                print(f"Skipping line with unexpected format: {line}")
+        
+        # Convert data rows to a DataFrame
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        
+        return {
+            'playlist_title': playlist_title,
+            'data': df,
+            'artist': artist,
+            'image_url': image_url
+        }
+    
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
+
+# Example usage:
+if __name__ == "__main__":
+    result = parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4xpgkm')
+    if result:
+        print("Playlist Title:", result['playlist_title'])
+        print("Artist:", result['artist'])
+        print("Image URL:", result['image_url'])
+        print("Data (first 5 rows):")
+        print(result['data'].head())
