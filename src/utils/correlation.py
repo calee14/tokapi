@@ -1,5 +1,5 @@
 #%%
-from .song_graphs import (
+from song_graphs import (
     get_spotify_reach_series,
     get_tiktok_series,
     find_spikes_in_normalized_series
@@ -119,7 +119,8 @@ def plot_correlation_coefficients(spotify_id: str, tiktok_id: str):
         ax.plot([t_end, t_end], y_limits, "r-.", label='TikTok Spike End', alpha=0.8)
     
     # Overlay correlation coefficient annotations.
-    for t_start, s_start, coeff in paired_correlations:
+    # (t_start, t_end, nearest_spotify[0], nearest_spotify[1], coefficient)
+    for t_start, s_start, _, _, coeff in paired_correlations:
         # Find midpoint between the paired spike starts.
         mid_point = t_start + (s_start - t_start) / 2
         ax.annotate(f"corr: {coeff:.2f}", xy=(mid_point, 0.65), xytext=(mid_point, 0.85),

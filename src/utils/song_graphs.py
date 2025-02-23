@@ -4,9 +4,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# MIN_EPOCH_SEC = 1732406400  # minimum epoch time in seconds
-# MIN_EPOCH_MS = MIN_EPOCH_SEC * 1000  # convert to milliseconds
-
 def get_spotify_playlist_series(song_id: str):
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
     if res.status_code != 200:
@@ -180,25 +177,43 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
 
     # Add markers for causation spikes and shade the causation areas
-    for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
-        if spotify_type == 'spotify' and tiktok_type == 'tiktok':
-            start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
-            end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[1]].values[0]
+    for (start_spike, start_type, end_spike, end_type) in causation:
+        if start_type == 'spotify' and end_type == 'tiktok':
+            start_val = spotify_normalized.loc[spotify_dates == start_spike[0]].values[0]
+            end_val = tiktok_normalized.loc[tiktok_dates == end_spike[1]].values[0]
             print(f"start_val: {start_val}, end_val: {end_val}")
-            plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
-            plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
-            plt.axvline(x=tiktok_spike[1], color='red', linestyle='--', alpha=0.5)
-            plt.scatter([tiktok_spike[1]], [end_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][2] else "")
-            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
-        elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
-            start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
-            end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[1]].values[0]
+            plt.axvline(x=start_spike[0], color='blue', linestyle='--', alpha=0.5)
+            plt.scatter([start_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if start_spike == causation[0][0] else "")
+            plt.axvline(x=end_spike[1], color='red', linestyle='--', alpha=0.5)
+            plt.scatter([end_spike[1]], [end_val], color='red', label='TikTok Critical Point' if end_spike == causation[0][2] else "")
+            plt.axvspan(start_spike[0], end_spike[1], color='green', alpha=0.3, label='Time Delta' if start_spike == causation[0][0] else "")
+            # Calculate the coefficient as the change in TikTok divided by the change in Spotify
+            tiktok_change = end_val - tiktok_normalized.loc[tiktok_dates == end_spike[0]].values[0]
+            spotify_change = spotify_normalized.loc[spotify_dates == start_spike[1]].values[0] - start_val
+            if spotify_change != 0:
+                coefficient = tiktok_change / spotify_change
+                mid_point = start_spike[0] + (end_spike[1] - start_spike[0]) / 2
+                plt.annotate(f"coeff: {coefficient:.2f}", xy=(mid_point, 0.5), xytext=(mid_point, 0.7),
+                             arrowprops=dict(arrowstyle="->", color='black'),
+                             ha='center', fontsize=10, color='black')
+        elif start_type == 'tiktok' and end_type == 'spotify':
+            start_val = tiktok_normalized.loc[tiktok_dates == start_spike[0]].values[0]
+            end_val = spotify_normalized.loc[spotify_dates == end_spike[1]].values[0]
             print(f"start_val: {start_val}, end_val: {end_val}")
-            plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
-            plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
-            plt.axvline(x=tiktok_spike[1], color='blue', linestyle='--', alpha=0.5)
-            plt.scatter([tiktok_spike[1]], [end_val], color='blue', label='Spotify Critical Point' if tiktok_spike == causation[0][2] else "")
-            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
+            plt.axvline(x=start_spike[0], color='red', linestyle='--', alpha=0.5)
+            plt.scatter([start_spike[0]], [start_val], color='red', label='TikTok Critical Point' if start_spike == causation[0][0] else "")
+            plt.axvline(x=end_spike[1], color='blue', linestyle='--', alpha=0.5)
+            plt.scatter([end_spike[1]], [end_val], color='blue', label='Spotify Critical Point' if end_spike == causation[0][2] else "")
+            plt.axvspan(start_spike[0], end_spike[1], color='green', alpha=0.3, label='Time Delta' if start_spike == causation[0][0] else "")
+            # Calculate the coefficient as the change in Spotify divided by the change in TikTok
+            spotify_change = end_val - spotify_normalized.loc[spotify_dates == end_spike[0]].values[0]
+            tiktok_change = tiktok_normalized.loc[tiktok_dates == start_spike[1]].values[0] - start_val
+            if tiktok_change != 0:
+                coefficient = spotify_change / tiktok_change
+                mid_point = start_spike[0] + (end_spike[1] - start_spike[0]) / 2
+                plt.annotate(f"coeff: {coefficient:.2f}", xy=(mid_point, 0.5), xytext=(mid_point, 0.7),
+                             arrowprops=dict(arrowstyle="->", color='black'),
+                             ha='center', fontsize=10, color='black')
 
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
