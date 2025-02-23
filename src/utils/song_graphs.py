@@ -97,7 +97,12 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     spotify_spike_dates = combine_intervals(spotify_spike_dates)
     tiktok_spike_dates = combine_intervals(tiktok_spike_dates)
 
-    return spotify_spike_dates, tiktok_spike_dates
+    # Get the normalized values for each spike
+    spotify_spike_values = [(spotify_normalized.loc[spotify_dates == start].values[0], spotify_normalized.loc[spotify_dates == end].values[0]) for start, end in spotify_spike_dates]
+    tiktok_spike_values = [(tiktok_normalized.loc[tiktok_dates == start].values[0], tiktok_normalized.loc[tiktok_dates == end].values[0]) for start, end in tiktok_spike_dates]
+
+    # return spotify_spike_dates, tiktok_spike_dates
+    return (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values)
 
 def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Retrieve series data
