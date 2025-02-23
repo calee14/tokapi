@@ -37,7 +37,68 @@ def get_tiktok_series(song_id: str):
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
         return track_name, last_90_data
 
-def plot_normalized_series(spotify_id: str, tiktok_id: str):
+def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
+    # Retrieve series data
+    spotify_data = get_spotify_playlist_series(spotify_id)[1]
+    tiktok_data = get_tiktok_series(tiktok_id)[1]
+
+    if spotify_data is None or tiktok_data is None:
+        print("Error fetching one or both data series.")
+        return []
+
+    # Extract timestamps and values (assumes [timestamp, value] structure)
+    spotify_timestamps = [entry[0] for entry in spotify_data]
+    tiktok_timestamps = [entry[0] for entry in tiktok_data]
+    spotify_values = [entry[1] for entry in spotify_data]
+    tiktok_values = [entry[1] for entry in tiktok_data]
+
+    # Convert timestamps to datetime objects (assuming epoch in ms)
+    spotify_dates = pd.to_datetime(spotify_timestamps, unit='ms')
+    tiktok_dates = pd.to_datetime(tiktok_timestamps, unit='ms')
+
+    # Normalize the values
+    spotify_series = pd.Series(spotify_values)
+    tiktok_series = pd.Series(tiktok_values)
+    spotify_normalized = spotify_series / spotify_series.max()
+    tiktok_normalized = tiktok_series / tiktok_series.max()
+
+    # Calculate the change in normalized values every 2 days
+    spotify_changes = spotify_normalized.diff(periods=2).dropna()
+    tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
+
+    # Calculate the average of all 2-day derivatives
+    avg_spotify_change = spotify_changes.mean() + spotify_changes.std() * 2
+    avg_tiktok_change = tiktok_changes.mean() + tiktok_changes.std()
+
+    # Identify spikes where the 2-day derivative is greater than the average
+    spotify_spikes = spotify_changes[spotify_changes > avg_spotify_change]
+    tiktok_spikes = tiktok_changes[tiktok_changes > avg_tiktok_change]
+
+    # Create a list of tuples representing the spikes
+    spotify_spike_dates = [(spotify_dates[i], spotify_dates[min(i + 2, len(spotify_dates) - 1)]) for i in spotify_spikes.index - 2]
+    tiktok_spike_dates = [(tiktok_dates[i], tiktok_dates[min(i + 2, len(tiktok_dates) - 1)]) for i in tiktok_spikes.index - 2]
+
+    # Function to combine overlapping intervals
+    def combine_intervals(intervals):
+        if not intervals:
+            return intervals
+        intervals.sort()
+        combined = [intervals[0]]
+        for current in intervals[1:]:
+            last = combined[-1]
+            if current[0] <= last[1]:
+                combined[-1] = (last[0], max(last[1], current[1]))
+            else:
+                combined.append(current)
+        return combined
+
+    # Combine overlapping intervals
+    spotify_spike_dates = combine_intervals(spotify_spike_dates)
+    tiktok_spike_dates = combine_intervals(tiktok_spike_dates)
+
+    return spotify_spike_dates, tiktok_spike_dates
+
+def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Retrieve series data
     spotify_data = get_spotify_playlist_series(spotify_id)[1]
     tiktok_data = get_tiktok_series(tiktok_id)[1]
@@ -62,17 +123,32 @@ def plot_normalized_series(spotify_id: str, tiktok_id: str):
     spotify_normalized = spotify_series / spotify_series.max()
     tiktok_normalized = tiktok_series / tiktok_series.max()
 
+    # Find spikes
+    spotify_spikes, tiktok_spikes = find_spikes_in_normalized_series(spotify_id, tiktok_id)
+
     # Plotting both normalized series using actual dates on the x-axis
     plt.figure(figsize=(10, 5))
     plt.plot(spotify_dates, spotify_normalized, label='Spotify (normalized)')
     plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
+
+    # Add markers for spikes
+    for start, end in spotify_spikes:
+        plt.axvline(x=start, color='blue', linestyle='--', alpha=0.5)
+        plt.axvline(x=end, color='blue', linestyle='--', alpha=0.5)
+    for start, end in tiktok_spikes:
+        plt.axvline(x=start, color='red', linestyle='--', alpha=0.5)
+        plt.axvline(x=end, color='red', linestyle='--', alpha=0.5)
+
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
-    plt.title('Normalized Song Data from Spotify and TikTok')
+    plt.title('Normalized Song Data from Spotify and TikTok with Spikes')
     plt.legend()
     plt.show()
 
 # Example usage:
 if __name__ == "__main__":
-    # Original normalized plot with dates on x-axis
-    plot_normalized_series(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+    spotify_spikes, tiktok_spikes = find_spikes_in_normalized_series(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+    print("Spotify Spikes:", spotify_spikes)
+    print("TikTok Spikes:", tiktok_spikes)
+    plot_normalized_series_with_spikes(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+# %%
