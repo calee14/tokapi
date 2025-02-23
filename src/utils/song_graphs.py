@@ -70,7 +70,7 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
 
     # Calculate the average of all 2-day derivatives
-    avg_spotify_change = spotify_changes.mean() + spotify_changes.std() * 3
+    avg_spotify_change = spotify_changes.mean() + spotify_changes.std()
     avg_tiktok_change = tiktok_changes.mean() + tiktok_changes.std()
 
     # Identify spikes where the 2-day derivative is greater than the average
@@ -104,6 +104,32 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     tiktok_spike_values = [(tiktok_normalized.loc[tiktok_dates == start].values[0], tiktok_normalized.loc[tiktok_dates == end].values[0]) for start, end in tiktok_spike_dates]
 
     return (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values)
+
+def determine_causation(spotify_spikes, tiktok_spikes):
+    causation = []
+    all_spikes = [(date, 'spotify') for date in spotify_spikes] + [(date, 'tiktok') for date in tiktok_spikes]
+    all_spikes.sort()
+
+    used_times = set()
+
+    for i in range(len(all_spikes) - 1):
+        current_spike, current_type = all_spikes[i]
+        next_spike, next_type = all_spikes[i + 1]
+
+        if current_spike[0] in used_times or next_spike[0] in used_times:
+            continue
+
+        if next_spike[0] <= current_spike[1] + pd.Timedelta(days=20):
+            if current_type == 'spotify' and next_type == 'tiktok':
+                causation.append((current_spike, 'spotify', next_spike, 'tiktok'))
+                used_times.add(current_spike[0])
+                used_times.add(next_spike[0])
+            elif current_type == 'tiktok' and next_type == 'spotify':
+                causation.append((current_spike, 'tiktok', next_spike, 'spotify'))
+                used_times.add(current_spike[0])
+                used_times.add(next_spike[0])
+
+    return causation
 
 def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Retrieve series data
@@ -143,21 +169,33 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     print("tiktok_spikes", tiktok_spike_dates)
     print("tiktok_spike_values", tiktok_spike_values)
 
+    # Determine causation
+    causation = determine_causation(spotify_spike_dates, tiktok_spike_dates)
+    print("causation", causation)
+
     # Plotting both normalized series using actual dates on the x-axis
     plt.figure(figsize=(10, 5))
     plt.plot(spotify_dates, spotify_normalized, label='Spotify (normalized)')
     plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
 
-    # Add markers for spikes
-    for (start, end), (start_val, end_val) in zip(spotify_spike_dates, spotify_spike_values):
-        plt.axvline(x=start, color='blue', linestyle='--', alpha=0.5)
-        plt.axvline(x=end, color='blue', linestyle='--', alpha=0.5)
-        plt.scatter([start, end], [start_val, end_val], color='blue')
-
-    for (start, end), (start_val, end_val) in zip(tiktok_spike_dates, tiktok_spike_values):
-        plt.axvline(x=start, color='red', linestyle='--', alpha=0.5)
-        plt.axvline(x=end, color='red', linestyle='--', alpha=0.5)
-        plt.scatter([start, end], [start_val, end_val], color='red')
+    # Add markers for causation spikes and shade the causation areas
+    for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
+        if spotify_type == 'spotify' and tiktok_type == 'tiktok':
+            start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
+            end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[1]].values[0]
+            plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
+            plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
+            plt.axvline(x=tiktok_spike[1], color='red', linestyle='--', alpha=0.5)
+            plt.scatter([tiktok_spike[1]], [end_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][2] else "")
+            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
+        if spotify_type == 'tiktok' and tiktok_type == 'spotify':
+            start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
+            end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[1]].values[0]
+            plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
+            plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
+            plt.axvline(x=tiktok_spike[1], color='blue', linestyle='--', alpha=0.5)
+            plt.scatter([tiktok_spike[1]], [end_val], color='blue', label='Spotify Critical Point' if tiktok_spike == causation[0][2] else "")
+            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
 
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
@@ -166,5 +204,5 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     plt.show()
 
 if __name__ == "__main__":
-    plot_normalized_series_with_spikes(spotify_id='2lmeytah', tiktok_id='2lmeytah')
+    plot_normalized_series_with_spikes(spotify_id='nv4xpgkm', tiktok_id='nv4xpgkm')
 # %%
