@@ -237,7 +237,7 @@ def read_csv_file(folder, code):
 
 #print(read_csv_file('spotify_playlists_dataset', 'nv4xpgkm'))
 
-def parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4xpgkm'):
+def parse_spotify_playlist_csv(folder, file_id):
     # Construct file name and full file path
     file_name = f"spotify_playlist_series_{file_id}.csv"
     file_path = os.path.join(folder, file_name)
@@ -273,10 +273,10 @@ def parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4x
         df = pd.DataFrame(data, columns=['timestamp', 'value'])
         
         return {
-            'playlist_title': playlist_title,
-            'data': df,
-            'artist': artist,
-            'image_url': image_url
+            0: playlist_title,
+            1: df,
+            2: artist,
+            3: image_url
         }
     
     except Exception as e:
@@ -285,10 +285,9 @@ def parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4x
 
 # Example usage:
 if __name__ == "__main__":
-    result = parse_spotify_playlist_csv(folder='spotify_playlists_dataset', file_id='nv4xpgkm')
+    result = parse_spotify_playlist_csv('spotify_playlists_dataset', 'nv4xpgkm')
     if result:
-        print("Playlist Title:", result['playlist_title'])
-        print("Artist:", result['artist'])
-        print("Image URL:", result['image_url'])
-        print("Data (first 5 rows):")
-        print(result['data'].head())
+        print("Playlist Title:", result[0])
+        print("Artist:", result[2])
+        print("Image URL:", result[3])
+        print(result[1].head())
