@@ -8,6 +8,7 @@ from utils.song_stats import (
     get_spotify_reach_series,
     get_tiktok_series
 )
+from utils.correlation import get_correlation_coefficients
 
 dash.register_page(__name__, path='/', name="About")
 
@@ -33,14 +34,6 @@ df_tiktok['normalized'] = df_tiktok['value'] / df_tiktok['value'].max()
 
 # Create a combined Plotly figure with all series in one graph (using a line graph)
 fig = go.Figure()
-
-fig.add_trace(go.Scatter(
-    x=df_spotify_playlist['date'],
-    y=df_spotify_playlist['normalized'],
-    mode='lines',
-    name=f"{spotify_playlist_result[0]} - Spotify Playlist",
-    line=dict(color='blue')
-))
 
 fig.add_trace(go.Scatter(
     x=df_spotify_reach['date'],
@@ -69,10 +62,10 @@ axis_style = dict(
     tickcolor='black'
 )
 
-# Update layout for the combined figure; remove built-in legend and add axis lines
-artist_name = spotify_playlist_result[0]  # assuming the artist's or track's name is here
+artist_name = spotify_playlist_result[0]  # assuming the track's name is here
+
 fig.update_layout(
-    showlegend=False,  # Remove built-in legend from the figure
+    showlegend=False,
     xaxis=dict(
         title='Date',
         showline=True,
@@ -90,25 +83,108 @@ fig.update_layout(
     title=dict(text=f"Song Statistics for {artist_name}", font=dict(size=28, color='black', family='Merriweather Sans')),
     plot_bgcolor='white',
     paper_bgcolor='white',
-    width=800,   # Increased width for a larger graph
-    height=800   # Increased height to keep the graph square
+    width=700,
+    height=700
 )
 
-# Create a custom external legend
+# Get paired spike data with correlation coefficients; each element is now:
+# (tiktok_start, tiktok_end, spotify_start, spotify_end, coefficient)
+paired_spikes = get_correlation_coefficients(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+
+for t_start, t_end, s_start, s_end, corr in paired_spikes:
+    # Compute absolute delay using the spike start times
+    delay = abs((s_start - t_start).total_seconds()) / 86400.0
+    # Determine midpoints for annotation
+    mid_start = t_start + (s_start - t_start) / 2
+    mid_end = t_end + (s_end - t_end) / 2
+
+    # Add vertical lines for spike starts (dashed lines)
+    fig.add_shape(
+        type="line",
+        x0=t_start,
+        y0=0,
+        x1=t_start,
+        y1=1,
+        yref="paper",
+        line=dict(color="red", dash="dash")
+    )
+    fig.add_shape(
+        type="line",
+        x0=s_start,
+        y0=0,
+        x1=s_start,
+        y1=1,
+        yref="paper",
+        line=dict(color="green", dash="dash")
+    )
+
+    # Add vertical lines for spike ends (dash-dot lines)
+    fig.add_shape(
+        type="line",
+        x0=t_end,
+        y0=0,
+        x1=t_end,
+        y1=1,
+        yref="paper",
+        line=dict(color="red", dash="dashdot")
+    )
+    fig.add_shape(
+        type="line",
+        x0=s_end,
+        y0=0,
+        x1=s_end,
+        y1=1,
+        yref="paper",
+        line=dict(color="green", dash="dashdot")
+    )
+
+    # Shade the area between each spike's start and end for TikTok and Spotify
+    fig.add_vrect(
+        x0=t_start,
+        x1=t_end,
+        fillcolor="red",
+        opacity=0.2,
+        layer="below",
+        line_width=0
+    )
+    fig.add_vrect(
+        x0=s_start,
+        x1=s_end,
+        fillcolor="green",
+        opacity=0.2,
+        layer="below",
+        line_width=0
+    )
+
+    # Update the annotation text to use "day" if delay equals 1, otherwise "days"
+    fig.add_annotation(
+        x=mid_start,
+        y=0.95,
+        xref="x",
+        yref="paper",
+        text=f"corr: {corr:.2f}<br>delay: {delay:.2f} {'day' if abs(delay-1)<1e-6 else 'days'}",
+        showarrow=True,
+        arrowhead=1,
+        ax=0,
+        ay=-30,
+        font=dict(size=12, color="black")
+    )
+
+# Create a custom external legend (optional)
 external_legend = html.Div([
     html.Span([
-        html.Span(style={'backgroundColor': 'blue', 'display': 'inline-block',
-                           'width': '12px', 'height': '12px', 'marginRight': '5px'}),
+        html.Span(style={'backgroundColor': 'blue',
+                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
         html.Span(f"{spotify_playlist_result[0]} - Spotify Playlist", style={'marginRight': '20px'})
     ], style={'display': 'inline-block', 'marginRight': '20px'}),
     html.Span([
-        html.Span(style={'backgroundColor': 'green', 'display': 'inline-block',
-                           'width': '12px', 'height': '12px', 'marginRight': '5px'}),
+        html.Span(style={'backgroundColor': 'green',
+                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
         html.Span(f"{spotify_reach_result[0]} - Spotify Reach", style={'marginRight': '20px'})
     ], style={'display': 'inline-block', 'marginRight': '20px'}),
     html.Span([
-        html.Span(style={'backgroundColor': 'red', 'display': 'inline-block',
-                           'width': '12px', 'height': '12px', 'marginRight': '5px'}),
+        html.Span(style={'backgroundColor': 'red',
+                           'display': 'inline-block', 'width': '12px', 'height': '12px', 'marginRight': '5px'}),
         html.Span(f"{tiktok_result[0]} - TikTok")
     ], style={'display': 'inline-block'})
 ], style={'textAlign': 'center', 'marginBottom': '20px'})
