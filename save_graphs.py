@@ -101,5 +101,44 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def main():
+    with open("src/utils/songs", "r") as file:
+        codes = file.read().splitlines()
+
+    for code in codes:
+        print(f"Processing song ID: {code}")
+        series = get_spotify_playlist_series(code)[1]
+        if series is None:
+            print(f"No data found for {code}.")
+            continue
+        if len(series) > 0:
+            filename = f"spotify_playlist_series_{code}.csv"
+            write_csv(filename, series)
+            print(f"Saved Spotify playlist data for {code} to {filename}")
+        else:
+            print(f"Not enough series available for song ID {code}.")
+
+if __name__ == "__main__":
+    main()
 '''
 
+def main():
+    with open("src/utils/songs", "r") as file:
+        codes = file.read().splitlines()
+
+    for code in codes:
+        print(f"Processing song ID: {code}")
+        series = get_tiktok_series(code)[1]
+        if series is None:
+            print(f"No data found for {code}.")
+            continue
+        if len(series) > 0:
+            filename = f"tiktok_series_{code}.csv"
+            write_csv(filename, series)
+            print(f"Saved Tiktok series data for {code} to {filename}")
+        else:
+            print(f"Not enough series available for song ID {code}.")
+
+if __name__ == "__main__":
+    main()
