@@ -34,55 +34,54 @@ def get_tiktok_series(song_id: str):
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
-        print("last_90_data", last_90_data)
         return track_name, last_90_data
 
-# --- New Helper Function ---
-def find_spikes_from_parsed_data(spotify_data, tiktok_data):
-    """
-    Uses already parsed data (lists of [timestamp, value]) to compute spike intervals.
-    Returns two lists of intervals (start_time, end_time) for Spotify and TikTok.
-    """
-    # Extract timestamps and values
+def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
+    # Retrieve series data
+    spotify_data = get_spotify_reach_series(spotify_id)[1]
+    tiktok_data = get_tiktok_series(tiktok_id)[1]
+
+    if spotify_data is None or tiktok_data is None:
+        print("Error fetching one or both data series.")
+        return [], []
+
+    # Extract timestamps and values (assumes [timestamp, value] structure)
     spotify_timestamps = [entry[0] for entry in spotify_data]
     tiktok_timestamps = [entry[0] for entry in tiktok_data]
     spotify_values = [entry[1] for entry in spotify_data]
     tiktok_values = [entry[1] for entry in tiktok_data]
 
-    # Convert to datetime objects (epoch in ms)
+    # Convert timestamps to datetime objects (assuming epoch in ms)
     spotify_dates = pd.to_datetime(spotify_timestamps, unit='ms')
     tiktok_dates = pd.to_datetime(tiktok_timestamps, unit='ms')
 
-    # Normalize values (simple normalization by dividing by max)
+    # Normalize the values
     spotify_series = pd.Series(spotify_values)
     tiktok_series = pd.Series(tiktok_values)
-    spotify_normalized = spotify_series / spotify_series.max()
-    tiktok_normalized = tiktok_series / tiktok_series.max()
+    def min_max_normalize(lst):
+        min_val = min(lst)
+        max_val = max(lst)
+        return [(x - min_val) / (max_val - min_val) for x in lst]
+    spotify_normalized = pd.Series(min_max_normalize(spotify_series))
+    tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
-    # Compute change over a 2-day window
+    # Calculate the change in normalized values every 2 days
     spotify_changes = spotify_normalized.diff(periods=2).dropna()
     tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
 
-    # Set thresholds (multipliers can be tuned)
-    avg_spotify_change = spotify_changes.mean() + 3 * spotify_changes.std()
-    avg_tiktok_change = tiktok_changes.mean() + 1 * tiktok_changes.std()
+    # Calculate the average of all 2-day derivatives
+    avg_spotify_change = spotify_changes.mean() + spotify_changes.std() * 3
+    avg_tiktok_change = tiktok_changes.mean() + tiktok_changes.std()
 
-    # Identify spikes where derivative exceeds threshold
+    # Identify spikes where the 2-day derivative is greater than the average
     spotify_spikes = spotify_changes[spotify_changes > avg_spotify_change]
     tiktok_spikes = tiktok_changes[tiktok_changes > avg_tiktok_change]
 
-    # Build intervals: (start, end) using a 2-index window;
-    # adjust index by subtracting 2 to approximate start times.
-    spotify_spike_intervals = [
-        (spotify_dates[i], spotify_dates[min(i + 2, len(spotify_dates) - 1)])
-        for i in (spotify_spikes.index - 2) if i >= 0
-    ]
-    tiktok_spike_intervals = [
-        (tiktok_dates[i], tiktok_dates[min(i + 2, len(tiktok_dates) - 1)])
-        for i in (tiktok_spikes.index - 2) if i >= 0
-    ]
+    # Create a list of tuples representing the spikes
+    spotify_spike_dates = [(spotify_dates[i], spotify_dates[min(i + 2, len(spotify_dates) - 1)]) for i in spotify_spikes.index - 2]
+    tiktok_spike_dates = [(tiktok_dates[i], tiktok_dates[min(i + 2, len(tiktok_dates) - 1)]) for i in tiktok_spikes.index - 2]
 
-    # Helper: merge overlapping intervals if needed
+    # Function to combine overlapping intervals
     def combine_intervals(intervals):
         if not intervals:
             return intervals
@@ -96,109 +95,69 @@ def find_spikes_from_parsed_data(spotify_data, tiktok_data):
                 combined.append(current)
         return combined
 
-    spotify_spike_intervals = combine_intervals(spotify_spike_intervals)
-    tiktok_spike_intervals = combine_intervals(tiktok_spike_intervals)
-    return spotify_spike_intervals, tiktok_spike_intervals
+    # Combine overlapping intervals
+    spotify_spike_dates = combine_intervals(spotify_spike_dates)
+    tiktok_spike_dates = combine_intervals(tiktok_spike_dates)
 
-# --- Spike Normalized Values & Plot Function Using Parsed Data ---
+    # Get the normalized values for each spike
+    spotify_spike_values = [(spotify_normalized.loc[spotify_dates == start].values[0], spotify_normalized.loc[spotify_dates == end].values[0]) for start, end in spotify_spike_dates]
+    tiktok_spike_values = [(tiktok_normalized.loc[tiktok_dates == start].values[0], tiktok_normalized.loc[tiktok_dates == end].values[0]) for start, end in tiktok_spike_dates]
 
-def get_spike_normalized_values(spotify_id: str, tiktok_id: str):
-    """
-    Returns two lists of tuples:
-      For Spotify: (spike_start, spike_end, normalized_at_start, normalized_at_end)
-      For TikTok: (spike_start, spike_end, normalized_at_start, normalized_at_end)
-    Uses the parsed data only once.
-    """
-    spotify_info = get_spotify_reach_series(spotify_id)
-    tiktok_info = get_tiktok_series(tiktok_id)
-    if spotify_info is None or tiktok_info is None:
-        print("Error fetching one or both data series.")
-        return [], []
-    # Use existing parsed data
-    spotify_data = spotify_info[1]
-    tiktok_data = tiktok_info[1]
-    
-    # Convert timestamps and values for normalization
-    spotify_timestamps = [entry[0] for entry in spotify_data]
-    spotify_values = [entry[1] for entry in spotify_data]
-    tiktok_timestamps = [entry[0] for entry in tiktok_data]
-    tiktok_values = [entry[1] for entry in tiktok_data]
-
-    spotify_dates = pd.to_datetime(spotify_timestamps, unit='ms')
-    tiktok_dates = pd.to_datetime(tiktok_timestamps, unit='ms')
-
-    def min_max_normalize(values):
-        min_val = min(values)
-        max_val = max(values)
-        return [(x - min_val) / (max_val - min_val) for x in values]
-
-    spotify_normalized = min_max_normalize(spotify_values)
-    tiktok_normalized = min_max_normalize(tiktok_values)
-
-    # Use the new helper to get spike intervals from already parsed data
-    spotify_spike_intervals, tiktok_spike_intervals = find_spikes_from_parsed_data(spotify_data, tiktok_data)
-
-    # Helper to find the normalized value nearest to a target time
-    def get_normalized_at_time(dates, norm_values, target):
-        idx = min(range(len(dates)), key=lambda i: abs((dates[i] - target).total_seconds()))
-        return norm_values[idx]
-
-    spotify_spike_norm = []
-    for start, end in spotify_spike_intervals:
-        norm_start = get_normalized_at_time(spotify_dates, spotify_normalized, start)
-        norm_end = get_normalized_at_time(spotify_dates, spotify_normalized, end)
-        spotify_spike_norm.append((start, end, norm_start, norm_end))
-
-    tiktok_spike_norm = []
-    for start, end in tiktok_spike_intervals:
-        norm_start = get_normalized_at_time(tiktok_dates, tiktok_normalized, start)
-        norm_end = get_normalized_at_time(tiktok_dates, tiktok_normalized, end)
-        tiktok_spike_norm.append((start, end, norm_start, norm_end))
-
-    return spotify_spike_norm, tiktok_spike_norm
+    return (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values)
 
 def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
-    """
-    Plots the normalized Spotify (reach) and TikTok series with markers at the detected spike intervals.
-    Uses the parsed data only once.
-    """
-    spotify_info = get_spotify_reach_series(spotify_id)
-    tiktok_info = get_tiktok_series(tiktok_id)
-    if spotify_info is None or tiktok_info is None:
+    # Retrieve series data
+    spotify_data = get_spotify_reach_series(spotify_id)[1]
+    song_name = get_spotify_reach_series(spotify_id)[0]
+    tiktok_data = get_tiktok_series(tiktok_id)[1]
+
+    if spotify_data is None or tiktok_data is None:
         print("Error fetching one or both data series.")
         return
-    spotify_data = spotify_info[1]
-    tiktok_data = tiktok_info[1]
-    song_name = spotify_info[0]
-    
+
+    # Extract timestamps and values (assumes [timestamp, value] structure)
     spotify_timestamps = [entry[0] for entry in spotify_data]
     tiktok_timestamps = [entry[0] for entry in tiktok_data]
     spotify_values = [entry[1] for entry in spotify_data]
     tiktok_values = [entry[1] for entry in tiktok_data]
 
+    # Convert timestamps to datetime objects (assuming epoch in ms)
     spotify_dates = pd.to_datetime(spotify_timestamps, unit='ms')
     tiktok_dates = pd.to_datetime(tiktok_timestamps, unit='ms')
 
+    # Normalize the values
+    spotify_series = pd.Series(spotify_values)
+    tiktok_series = pd.Series(tiktok_values)
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
         return [(x - min_val) / (max_val - min_val) for x in lst]
-    spotify_normalized = min_max_normalize(spotify_values)
-    tiktok_normalized = min_max_normalize(tiktok_values)
+    spotify_normalized = pd.Series(min_max_normalize(spotify_series))
+    tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
-    spotify_spikes, tiktok_spikes = find_spikes_from_parsed_data(spotify_data, tiktok_data)
+    # Find spikes
+    (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
     
-    plt.figure(figsize=(10, 5))
-    plt.plot(spotify_dates, spotify_normalized, label='Spotify (normalized)', color='blue')
-    plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)', color='red')
+    print("spotify_spikes", spotify_spike_dates)
+    print("spotify_spike_values", spotify_spike_values)
+    print("tiktok_spikes", tiktok_spike_dates)
+    print("tiktok_spike_values", tiktok_spike_values)
 
-    # Mark spike start and end times
-    for start, end in spotify_spikes:
-        plt.axvline(x=start, color='blue', linestyle='--', alpha=0.7)
-        plt.axvline(x=end, color='blue', linestyle='--', alpha=0.7)
-    for start, end in tiktok_spikes:
-        plt.axvline(x=start, color='red', linestyle='--', alpha=0.7)
-        plt.axvline(x=end, color='red', linestyle='--', alpha=0.7)
+    # Plotting both normalized series using actual dates on the x-axis
+    plt.figure(figsize=(10, 5))
+    plt.plot(spotify_dates, spotify_normalized, label='Spotify (normalized)')
+    plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
+
+    # Add markers for spikes
+    for (start, end), (start_val, end_val) in zip(spotify_spike_dates, spotify_spike_values):
+        plt.axvline(x=start, color='blue', linestyle='--', alpha=0.5)
+        plt.axvline(x=end, color='blue', linestyle='--', alpha=0.5)
+        plt.scatter([start, end], [start_val, end_val], color='blue')
+
+    for (start, end), (start_val, end_val) in zip(tiktok_spike_dates, tiktok_spike_values):
+        plt.axvline(x=start, color='red', linestyle='--', alpha=0.5)
+        plt.axvline(x=end, color='red', linestyle='--', alpha=0.5)
+        plt.scatter([start, end], [start_val, end_val], color='red')
 
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
@@ -206,21 +165,6 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     plt.legend()
     plt.show()
 
-# --- Example usage ---
-
 if __name__ == "__main__":
-    spotify_id = '2lmeytah'
-    tiktok_id = '2lmeytah'
-    
-    # Plot the graphs with spikes
-    plot_normalized_series_with_spikes(spotify_id, tiktok_id)
-    
-    # Get and print the normalized spike values (using the already parsed data)
-    spotify_spike_values, tiktok_spike_values = get_spike_normalized_values(spotify_id, tiktok_id)
-    print("\nSpotify Spike Normalized Values (start, end, norm_start, norm_end):")
-    for spike in spotify_spike_values:
-        print(spike)
-    print("\nTikTok Spike Normalized Values (start, end, norm_start, norm_end):")
-    for spike in tiktok_spike_values:
-        print(spike)
+    plot_normalized_series_with_spikes(spotify_id='2lmeytah', tiktok_id='2lmeytah')
 # %%
