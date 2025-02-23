@@ -2,11 +2,12 @@ import dash
 from dash import html, dcc, callback, Output, Input, State
 import plotly.graph_objects as go
 import pandas as pd
-from utils.song_stats import (
+from utils.song_graphs import (
     get_spotify_reach_series,
     get_tiktok_series
 )
 from utils.song_graphs import plot_normalized_series_with_spikes
+from utils.time_delay import generate_time_delay_graph
 
 dash.register_page(__name__, path='/', name="About")
 
@@ -15,7 +16,6 @@ spotify_reach_result = get_spotify_reach_series(song_id='c7vi4fny')
 tiktok_result = get_tiktok_series(song_id='c7vi4fny')
 
 # Create dataframes from the returned series (assumes structure: [timestamp, value])
-
 df_spotify_reach = pd.DataFrame(spotify_reach_result[1], columns=['timestamp', 'value'])
 df_spotify_reach['date'] = pd.to_datetime(df_spotify_reach['timestamp'], unit='ms')
 
@@ -26,8 +26,13 @@ df_tiktok['date'] = pd.to_datetime(df_tiktok['timestamp'], unit='ms')
 df_spotify_reach['normalized'] = df_spotify_reach['value'] / df_spotify_reach['value'].max()
 df_tiktok['normalized'] = df_tiktok['value'] / df_tiktok['value'].max()
 
+track_name = tiktok_result[0]
+artist_name = tiktok_result[2]
+avatar = tiktok_result[3]
+
 # Create a combined Plotly figure with all series in one graph (using a line graph)
-fig = plot_normalized_series_with_spikes('c7vi4fny', 'c7vi4fny')
+fig, spotify_dates, spotify_normalized, tiktok_dates, tiktok_normalized = plot_normalized_series_with_spikes('c7vi4fny', 'c7vi4fny')
+fig_time_delay, spotify_dates_time_delay, spotify_normalized_time_delay, tiktok_dates_time_delay, tiktok_normalized_time_delay = generate_time_delay_graph(spotify_id='c7vi4fny', tiktok_id='c7vi4fny')
 
 # Define axis style with larger fonts for labels and ticks
 axis_style = dict(
@@ -39,10 +44,6 @@ axis_style = dict(
     tickwidth=2,
     tickcolor='black'
 )
-
-track_name = tiktok_result[0]
-artist_name = tiktok_result[2]
-avatar = tiktok_result[3]
 
 fig.update_layout(
     showlegend=False,
@@ -63,7 +64,35 @@ fig.update_layout(
     ),
     title=dict(
         text=f"Song Statistics for {track_name} - {artist_name}",
-        font=dict(size=28, color='black', family='Merriweather Sans'),
+        font=dict(size=20, color='black', family='Merriweather Sans'),
+        x=0.5  # center the title
+    ),
+    plot_bgcolor='white',
+    paper_bgcolor='white',
+    width=600,
+    height=600
+)
+
+fig_time_delay.update_layout(
+    showlegend=False,
+    xaxis=dict(
+        title='Date',
+        showline=True,
+        linecolor='black',
+        linewidth=2,
+        **axis_style
+    ),
+    yaxis=dict(
+        title='Normalized Value',
+        showline=True,
+        linecolor='black',
+        linewidth=2,
+        **axis_style,
+        range=[0,1]
+    ),
+    title=dict(
+        text=f"Time Delay Analysis for {track_name} - {artist_name}",
+        font=dict(size=20, color='black', family='Merriweather Sans'),
         x=0.5  # center the title
     ),
     plot_bgcolor='white',
@@ -75,7 +104,7 @@ fig.update_layout(
 # Create a custom external legend (optional)
 external_legend = html.Div([
     html.Span([
-        html.Span(style={'backgroundColor': 'green',
+        html.Span(style={'backgroundColor': 'blue',
                            'display': 'inline-block',
                            'width': '12px', 'height': '12px', 'marginRight': '5px'}),
         html.Span(f"Spotify Playlist Reach", style={'marginRight': '20px'})
@@ -88,7 +117,7 @@ external_legend = html.Div([
     ], style={'display': 'inline-block'})
 ], style={'textAlign': 'center', 'marginBottom': '20px'})
 
-# Center the graph in its own container
+# Center the graphs in their own containers
 graph_container = html.Div(
     dcc.Graph(id='graph', figure=fig),
     style={
@@ -99,7 +128,17 @@ graph_container = html.Div(
     }
 )
 
-# Place the legend below the graph (centered too)
+graph_time_delay_container = html.Div(
+    dcc.Graph(id='graph-time-delay', figure=fig_time_delay),
+    style={
+        'width': '700px',
+        'margin': '0 auto',
+        'display': 'flex',
+        'justifyContent': 'center'
+    }
+)
+
+# Place the legend below the graphs (centered too)
 legend_container = html.Div(
     external_legend,
     style={'width': '700px', 'margin': '20px auto 0', 'textAlign': 'center'}
@@ -115,7 +154,7 @@ description = html.Div([
         style={'fontSize': '16px', 'textAlign': 'center', 'margin': '10px 0'}
     ),
     html.P(
-        "-- line = the beginning of the spike, and .- line = the end of the spike.",
+        ".. line = the beginning of the spike, and -- line = the end of the spike.",
         style={'fontSize': '14px', 'textAlign': 'center', 'margin': '10px 0', 'fontStyle': 'italic'}
     )
 ])
@@ -187,12 +226,14 @@ layout = html.Div([
         'marginBottom': '20px'
     }),
     graph_container,
+    graph_time_delay_container,
     legend_container,
     description,
     bottom_bar,
     store,  # dcc.Store for play state
     animate_dummy  # dummy Div for animation callback
-], style={'margin': '20px'})
+], style={'margin': '20px', 'paddingBottom': '100px',
+})
 
 # Callback to toggle play/pause state and update the play/pause button icon.
 @callback(
@@ -227,13 +268,13 @@ def update_avatar(playing):
     return base_style
 
 # Build animation frames (with fixed y-axis range [0,1])
-N = len(df_spotify_reach)
+N = len(spotify_dates)
 frames = []
 
 # Frame 0: start with empty data.
 frames.append(go.Frame(
     data=[
-        go.Scatter(x=[], y=[], mode='lines', line=dict(color='green')),
+        go.Scatter(x=[], y=[], mode='lines', line=dict(color='blue')),
         go.Scatter(x=[], y=[], mode='lines', line=dict(color='red'))
     ],
     layout=dict(
@@ -243,37 +284,24 @@ frames.append(go.Frame(
     name='frame0'
 ))
 
-# Frame 1: axes visible (with fixed range).
-frames.append(go.Frame(
-    data=[
-        go.Scatter(x=[], y=[], mode='lines', line=dict(color='green')),
-        go.Scatter(x=[], y=[], mode='lines', line=dict(color='red'))
-    ],
-    layout=dict(
-        xaxis=dict(visible=True),
-        yaxis=dict(visible=True, range=[0,1])
-    ),
-    name='frame1'
-))
-
-# Frames 2..N+1: gradually add data points for both traces.
+# Frames 1..N: gradually add data points for both traces.
 for i in range(1, N+1):
     frames.append(go.Frame(
         data=[
             go.Scatter(
-                x=df_spotify_reach['date'][:i],
-                y=df_spotify_reach['normalized'][:i],
+                x=spotify_dates[:i],
+                y=spotify_normalized[:i],
                 mode='lines',
-                line=dict(color='green')
+                line=dict(color='blue')
             ),
             go.Scatter(
-                x=df_tiktok['date'][:i],
-                y=df_tiktok['normalized'][:i],
+                x=tiktok_dates[:i],
+                y=tiktok_normalized[:i],
                 mode='lines',
                 line=dict(color='red')
             )
         ],
-        name=f'frame{i+1}'
+        name=f'frame{i}'
     ))
 
 fig.frames = frames
@@ -300,6 +328,3 @@ dash.clientside_callback(
     Output('animate-dummy', 'children'),
     Input('playing-store', 'data')
 )
-
-#%%
-
