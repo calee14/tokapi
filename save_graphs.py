@@ -2,6 +2,8 @@ import requests
 import csv
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
+import glob
 
 def get_spotify_playlist_series(song_id: str):
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
@@ -97,6 +99,7 @@ def main():
         series = get_spotify_reach_series(code)[1]
         name = get_spotify_reach_series(code)[0]
         artist = get_spotify_reach_series(code)[2]
+        avatar = get_spotify_reach_series(code)[3]
         if series is None:
             print(f"No data found for {code}.")
             continue
@@ -105,9 +108,10 @@ def main():
           # write_csv(filename, series)
             with open(filename, "w", newline="") as file:
                 file.write(name + "\n")
-                file.write(artist + "\n")
                 writer = csv.writer(file)
                 writer.writerows(series)
+                file.write(artist + "\n")
+                file.write(avatar)
             print(f"Saved Spotify Reach data for {code} to {filename}")
         else:
             print(f"Not enough series available for song ID {code}.")
@@ -130,6 +134,7 @@ def main():
         series = get_spotify_playlist_series(code)[1]
         name = get_spotify_playlist_series(code)[0]
         artist = get_spotify_playlist_series(code)[2]
+        avatar = get_spotify_playlist_series(code)[3]
         if series is None:
             print(f"No data found for {code}.")
             continue
@@ -138,9 +143,10 @@ def main():
           # write_csv(filename, series)
             with open(filename, "w", newline="") as file:
                 file.write(name + "\n")
-                file.write(artist + "\n")
                 writer = csv.writer(file)
                 writer.writerows(series)
+                file.write(artist + "\n")
+                file.write(avatar)
             print(f"Saved Spotify Playlist data for {code} to {filename}")
         else:
             print(f"Not enough series available for song ID {code}.")
@@ -149,7 +155,7 @@ if __name__ == "__main__":
     main()
 '''
 
-
+'''
 def main():
     with open("src/utils/songs", "r") as file:
         codes = file.read().splitlines()
@@ -161,6 +167,7 @@ def main():
         series = get_tiktok_series(code)[1]
         name = get_tiktok_series(code)[0]
         artist = get_tiktok_series(code)[2]
+        avatar = get_tiktok_series(code)[3]
         if series is None:
             print(f"No data found for {code}.")
             continue
@@ -169,15 +176,64 @@ def main():
           # write_csv(filename, series)
             with open(filename, "w", newline="") as file:
                 file.write(name + "\n")
-                file.write(artist + "\n")
                 writer = csv.writer(file)
                 writer.writerows(series)
+                file.write(artist)
+                file.write("\n" + avatar)
             print(f"Saved Tiktok series data for {code} to {filename}")
         else:
             print(f"Not enough series available for song ID {code}.")
 
 if __name__ == "__main__":
     main()
+'''
 
 
+def read_spotify_csv_files(folder):
+    # Construct a file path pattern for CSV files in the folder
+    csv_pattern = os.path.join(folder, '*.csv')
+    csv_files = glob.glob(csv_pattern)
+    print(csv_pattern)
+    
+    # Dictionary to store the DataFrames
+    dataframes = {}
+    
+    for file in csv_files:
+        try:
+            # Read the CSV file into a DataFrame
+            df = pd.read_csv(file)
+            # Use the base file name (e.g., "data.csv") as the key
+            dataframes[os.path.basename(file)] = df
+        except Exception as e:
+            print(f"Error reading {file}: {e}")
+    
+    return dataframes
+
+
+'''
+if __name__ == "__main__":
+    csv_data = read_spotify_csv_files('spotify_reach_dataset')
+    for filename, df in csv_data.items():
+        print(f"Contents of {filename}:")
+        print(df.head())
+'''
+
+def read_csv_file(folder, code):
+    file_name = f"spotify_playlist_series_{code}.csv"
+    file_path = os.path.join(folder, file_name)
+    print(file_path)
+        
+    try:
+        # Read the CSV file into a DataFrame
+        df = pd.read_csv(file_path)
+        # Use the base file name (e.g., "data.csv") as the key
+        return df
+    except Exception as e:
+        print(f"Error reading {file_path}: {e}")
+        return None
+
+
+#spotify_playlists_dataset/spotify_playlist_series_nv4xpgkm.csv
+
+#print(read_csv_file('spotify_playlists_dataset', 'nv4xpgkm'))
 
