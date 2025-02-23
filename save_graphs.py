@@ -237,10 +237,10 @@ def read_csv_file(folder, code):
 
 #print(read_csv_file('spotify_playlists_dataset', 'nv4xpgkm'))
 
-def parse_spotify_playlist_csv(folder, file_id):
+def parse_spotify_playlist_csv(file_id):
     # Construct file name and full file path
     file_name = f"spotify_playlist_series_{file_id}.csv"
-    file_path = os.path.join(folder, file_name)
+    file_path = os.path.join('spotify_playlists_dataset', file_name)
     
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -285,7 +285,120 @@ def parse_spotify_playlist_csv(folder, file_id):
 
 # Example usage:
 if __name__ == "__main__":
-    result = parse_spotify_playlist_csv('spotify_playlists_dataset', 'nv4xpgkm')
+    result = parse_spotify_playlist_csv('nv4xpgkm')
+    if result:
+        print("Playlist Title:", result[0])
+        print("Artist:", result[2])
+        print("Image URL:", result[3])
+        print(result[1].head())
+
+
+def parse_spotify_reach_csv(file_id):
+    # Construct file name and full file path
+    file_name = f"spotify_reach_series_{file_id}.csv"
+    file_path = os.path.join('spotify_reach_dataset', file_name)
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+        
+        if len(lines) < 3:
+            raise ValueError("CSV file does not have the expected structure.")
+        
+        # Extract the components based on the assumed file structure
+        playlist_title = lines[0]
+        artist = lines[-2]
+        image_url = lines[-1]
+        
+        # Data rows are assumed to be between the first and the last two lines
+        data_lines = lines[1:-2]
+        data = []
+        for line in data_lines:
+            parts = line.split(',')
+            if len(parts) == 2:
+                try:
+                    timestamp = int(parts[0])
+                    value = int(parts[1])
+                    data.append((timestamp, value))
+                except ValueError:
+                    print(f"Skipping invalid data row: {line}")
+            else:
+                print(f"Skipping line with unexpected format: {line}")
+        
+        # Convert data rows to a DataFrame
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        
+        return {
+            0: playlist_title,
+            1: df,
+            2: artist,
+            3: image_url
+        }
+    
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
+
+
+if __name__ == "__main__":
+    result = parse_spotify_reach_csv('nv4xpgkm')
+    if result:
+        print("Playlist Title:", result[0])
+        print("Artist:", result[2])
+        print("Image URL:", result[3])
+        print(result[1].head())
+
+
+
+def parse_tiktok_series_csv(file_id):
+    # Construct file name and full file path
+    file_name = f"tiktok_series_{file_id}.csv"
+    file_path = os.path.join('tiktok_series_dataset', file_name)
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.read().splitlines()
+        
+        if len(lines) < 3:
+            raise ValueError("CSV file does not have the expected structure.")
+        
+        # Extract the components based on the assumed file structure
+        playlist_title = lines[0]
+        artist = lines[-2]
+        image_url = lines[-1]
+        
+        # Data rows are assumed to be between the first and the last two lines
+        data_lines = lines[1:-2]
+        data = []
+        for line in data_lines:
+            parts = line.split(',')
+            if len(parts) == 2:
+                try:
+                    timestamp = int(parts[0])
+                    value = int(parts[1])
+                    data.append((timestamp, value))
+                except ValueError:
+                    print(f"Skipping invalid data row: {line}")
+            else:
+                print(f"Skipping line with unexpected format: {line}")
+        
+        # Convert data rows to a DataFrame
+        df = pd.DataFrame(data, columns=['timestamp', 'value'])
+        
+        return {
+            0: playlist_title,
+            1: df,
+            2: artist,
+            3: image_url
+        }
+    
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
+
+
+if __name__ == "__main__":
+    result = parse_tiktok_series_csv('nv4xpgkm')
     if result:
         print("Playlist Title:", result[0])
         print("Artist:", result[2])
