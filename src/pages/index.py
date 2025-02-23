@@ -90,8 +90,8 @@ fig.update_layout(
     title=dict(text=f"Song Statistics for {artist_name}", font=dict(size=28, color='black', family='Merriweather Sans')),
     plot_bgcolor='white',
     paper_bgcolor='white',
-    width=800,   # Increased width for a larger graph
-    height=800   # Increased height to keep the graph square
+    width=700,   # Increased width for a larger graph
+    height=700   # Increased height to keep the graph square
 )
 
 # Create a custom external legend
