@@ -62,7 +62,7 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
-        return [(x - min_val) / (max_val - min_val) for x in lst]
+        return [(x - min_val) / (max_val - min_val + pow(1, -8)) for x in lst] # check for division by 0
     spotify_normalized = pd.Series(min_max_normalize(spotify_series))
     tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
@@ -158,7 +158,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     def min_max_normalize(lst):
         min_val = min(lst)
         max_val = max(lst)
-        return [(x - min_val) / (max_val - min_val) for x in lst]
+        return [(x - min_val) / (max_val - min_val + pow(1, -8)) for x in lst] # check for division by 0
     spotify_normalized = pd.Series(min_max_normalize(spotify_series))
     tiktok_normalized = pd.Series(min_max_normalize(tiktok_series))
 
@@ -184,6 +184,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
         if spotify_type == 'spotify' and tiktok_type == 'tiktok':
             start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
             end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[1]].values[0]
+            print(f"start_val: {start_val}, end_val: {end_val}")
             plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
             plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
             plt.axvline(x=tiktok_spike[1], color='red', linestyle='--', alpha=0.5)
@@ -192,6 +193,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
         elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
             start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
             end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[1]].values[0]
+            print(f"start_val: {start_val}, end_val: {end_val}")
             plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
             plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
             plt.axvline(x=tiktok_spike[1], color='blue', linestyle='--', alpha=0.5)
@@ -206,5 +208,5 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
 
 # Example usage:
 if __name__ == "__main__":
-    plot_normalized_series_with_spikes(spotify_id='bjux4okf', tiktok_id='bjux4okf')
+    plot_normalized_series_with_spikes(spotify_id='njtwgzci', tiktok_id='njtwgzci')
 # %%
