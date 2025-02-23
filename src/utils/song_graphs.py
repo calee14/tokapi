@@ -1,11 +1,7 @@
 #%%
 import requests
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
-
-# MIN_EPOCH_SEC = 1732406400  # minimum epoch time in seconds
-# MIN_EPOCH_MS = MIN_EPOCH_SEC * 1000  # convert to milliseconds
+import plotly.graph_objects as go
 
 def get_spotify_playlist_series(song_id: str):
     res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=spotify")
@@ -140,7 +136,7 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
 
     if spotify_data is None or tiktok_data is None:
         print("Error fetching one or both data series.")
-        return
+        return None
 
     # Extract timestamps and values (assumes [timestamp, value] structure)
     spotify_timestamps = [entry[0] for entry in spotify_data]
@@ -165,48 +161,152 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Find spikes
     (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
     
-    print("spotify_spikes", spotify_spike_dates)
-    print("spotify_spike_values", spotify_spike_values)
-    print("tiktok_spikes", tiktok_spike_dates)
-    print("tiktok_spike_values", tiktok_spike_values)
-
     # Determine causation
     causation = determine_causation(spotify_spike_dates, tiktok_spike_dates)
-    print("causation", causation)
     
-    # Plotting both normalized series using actual dates on the x-axis
-    plt.figure(figsize=(10, 5))
-    plt.plot(spotify_dates, spotify_normalized, label='Spotify (normalized)')
-    plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
+    # Create Plotly figure
+    fig = go.Figure()
+
+    # Add normalized series traces
+    fig.add_trace(go.Scatter(
+        x=spotify_dates,
+        y=spotify_normalized,
+        mode='lines',
+        name='Spotify (normalized)',
+        line=dict(color='blue')
+    ))
+    fig.add_trace(go.Scatter(
+        x=tiktok_dates,
+        y=tiktok_normalized,
+        mode='lines',
+        name='TikTok (normalized)',
+        line=dict(color='red')
+    ))
 
     # Add markers for causation spikes and shade the causation areas
-    for (spotify_spike, spotify_type, tiktok_spike, tiktok_type) in causation:
-        if spotify_type == 'spotify' and tiktok_type == 'tiktok':
-            start_val = spotify_normalized.loc[spotify_dates == spotify_spike[0]].values[0]
-            end_val = tiktok_normalized.loc[tiktok_dates == tiktok_spike[1]].values[0]
-            print(f"start_val: {start_val}, end_val: {end_val}")
-            plt.axvline(x=spotify_spike[0], color='blue', linestyle='--', alpha=0.5)
-            plt.scatter([spotify_spike[0]], [start_val], color='blue', label='Spotify Critical Point' if spotify_spike == causation[0][0] else "")
-            plt.axvline(x=tiktok_spike[1], color='red', linestyle='--', alpha=0.5)
-            plt.scatter([tiktok_spike[1]], [end_val], color='red', label='TikTok Critical Point' if tiktok_spike == causation[0][2] else "")
-            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
-        elif spotify_type == 'tiktok' and tiktok_type == 'spotify':
-            start_val = tiktok_normalized.loc[tiktok_dates == spotify_spike[0]].values[0]
-            end_val = spotify_normalized.loc[spotify_dates == tiktok_spike[1]].values[0]
-            print(f"start_val: {start_val}, end_val: {end_val}")
-            plt.axvline(x=spotify_spike[0], color='red', linestyle='--', alpha=0.5)
-            plt.scatter([spotify_spike[0]], [start_val], color='red', label='TikTok Critical Point' if spotify_spike == causation[0][0] else "")
-            plt.axvline(x=tiktok_spike[1], color='blue', linestyle='--', alpha=0.5)
-            plt.scatter([tiktok_spike[1]], [end_val], color='blue', label='Spotify Critical Point' if tiktok_spike == causation[0][2] else "")
-            plt.axvspan(spotify_spike[0], tiktok_spike[1], color='green', alpha=0.3, label='Time Delta' if spotify_spike == causation[0][0] else "")
+    for (start_spike, start_type, end_spike, end_type) in causation:
+        if start_type == 'spotify' and end_type == 'tiktok':
+            start_val = spotify_normalized.loc[spotify_dates == start_spike[0]].values[0]
+            end_val = tiktok_normalized.loc[tiktok_dates == end_spike[1]].values[0]
+            fig.add_shape(
+                type="line",
+                x0=start_spike[0],
+                y0=0,
+                x1=start_spike[0],
+                y1=1,
+                yref="paper",
+                line=dict(color="blue", dash="dash")
+            )
+            fig.add_shape(
+                type="line",
+                x0=end_spike[1],
+                y0=0,
+                x1=end_spike[1],
+                y1=1,
+                yref="paper",
+                line=dict(color="red", dash="dash")
+            )
+            fig.add_vrect(
+                x0=start_spike[0],
+                x1=end_spike[1],
+                fillcolor="green",
+                opacity=0.3,
+                layer="below",
+                line_width=0
+            )
+            # Add dots for start and end points
+            fig.add_trace(go.Scatter(
+                x=[start_spike[0], end_spike[1]],
+                y=[start_val, end_val],
+                mode='markers',
+                marker=dict(color=['blue', 'red'], size=10),
+                name='Critical Points'
+            ))
+            # Calculate the coefficient as the change in TikTok divided by the change in Spotify
+            tiktok_change = end_val - tiktok_normalized.loc[tiktok_dates == end_spike[0]].values[0]
+            spotify_change = spotify_normalized.loc[spotify_dates == start_spike[1]].values[0] - start_val
+            if spotify_change != 0:
+                coefficient = tiktok_change / spotify_change
+                mid_point = start_spike[0] + (end_spike[1] - start_spike[0]) / 2
+                delay = abs((end_spike[1] - start_spike[0]).days)
+                fig.add_annotation(
+                    x=mid_point,
+                    y=0.5,
+                    text=f"coeff: {coefficient:.2f}<br>delay: {delay:.2f} {'day' if abs(delay-1)<1e-6 else 'days'}",
+                    showarrow=True,
+                    arrowhead=1,
+                    ax=0,
+                    ay=-30,
+                    font=dict(size=12, color="black", weight="bold")
+                )
+        elif start_type == 'tiktok' and end_type == 'spotify':
+            start_val = tiktok_normalized.loc[tiktok_dates == start_spike[0]].values[0]
+            end_val = spotify_normalized.loc[spotify_dates == end_spike[1]].values[0]
+            fig.add_shape(
+                type="line",
+                x0=start_spike[0],
+                y0=0,
+                x1=start_spike[0],
+                y1=1,
+                yref="paper",
+                line=dict(color="red", dash="dash")
+            )
+            fig.add_shape(
+                type="line",
+                x0=end_spike[1],
+                y0=0,
+                x1=end_spike[1],
+                y1=1,
+                yref="paper",
+                line=dict(color="blue", dash="dash")
+            )
+            fig.add_vrect(
+                x0=start_spike[0],
+                x1=end_spike[1],
+                fillcolor="green",
+                opacity=0.3,
+                layer="below",
+                line_width=0
+            )
+            # Add dots for start and end points
+            fig.add_trace(go.Scatter(
+                x=[start_spike[0], end_spike[1]],
+                y=[start_val, end_val],
+                mode='markers',
+                marker=dict(color=['red', 'blue'], size=10),
+                name='Critical Points'
+            ))
+            # Calculate the coefficient as the change in Spotify divided by the change in TikTok
+            spotify_change = end_val - spotify_normalized.loc[spotify_dates == end_spike[0]].values[0]
+            tiktok_change = tiktok_normalized.loc[tiktok_dates == start_spike[1]].values[0] - start_val
+            if tiktok_change != 0:
+                coefficient = spotify_change / tiktok_change
+                mid_point = start_spike[0] + (end_spike[1] - start_spike[0]) / 2
+                delay = abs((end_spike[1] - start_spike[0]).days)
+                fig.add_annotation(
+                    x=mid_point,
+                    y=0.5,
+                    text=f"coeff: {coefficient:.2f}<br>delay: {delay:.2f} {'day' if abs(delay-1)<1e-6 else 'days'}",
+                    showarrow=True,
+                    arrowhead=1,
+                    ax=0,
+                    ay=-30,
+                    font=dict(size=12, color="black", weight="bold")
+                )
 
-    plt.xlabel('Date')
-    plt.ylabel('Normalized Value')
-    plt.title(f"Spotify and TikTok Series for {song_name}")
-    plt.legend()
-    plt.show()
+    fig.update_layout(
+        title=f"Spotify and TikTok Series for {song_name}",
+        xaxis_title='Date',
+        yaxis_title='Normalized Value',
+        legend_title='Series',
+        plot_bgcolor='white',
+        paper_bgcolor='white'
+    )
+
+    return fig
 
 # Example usage:
 if __name__ == "__main__":
-    plot_normalized_series_with_spikes(spotify_id='njtwgzci', tiktok_id='njtwgzci')
+    fig = plot_normalized_series_with_spikes(spotify_id='c7vi4fny', tiktok_id='c7vi4fny')
+    fig.show()
 # %%
