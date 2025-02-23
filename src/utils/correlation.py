@@ -1,5 +1,5 @@
 #%%
-from song_graphs import (
+from .song_graphs import (
     get_spotify_reach_series,
     get_tiktok_series,
     find_spikes_in_normalized_series

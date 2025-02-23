@@ -13,8 +13,8 @@ import pandas as pd
 # ---------------------------
 # STEP 1. Import the raw series data and prepare it for plotting
 # ---------------------------
-spotify_id = 'njtwgzci'
-tiktok_id = 'njtwgzci'
+spotify_id = 'c7vi4fny'
+tiktok_id = 'c7vi4fny'
 
 # Get raw series (for plotting background time-series)
     # Retrieve series data
