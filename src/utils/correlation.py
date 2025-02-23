@@ -144,7 +144,7 @@ if __name__ == "__main__":
     tiktok_id = 'njtwgzci'
     coeffs = get_correlation_coefficients(spotify_id, tiktok_id)
     print("Correlation Coefficients (tiktok_jump / spotify_jump) for the paired spikes:")
-    for (t_start, s_start, c) in coeffs:
-        print(f"TikTok Spike at {t_start} paired with Spotify Spike at {s_start}: Coefficient = {c:.2f}")
+    for (t_start, t_end, s_start, s_end, c) in coeffs:
+        print(f"TikTok Spike starting at {t_start} paired with Spotify Spike starting at {s_start}: Coefficient = {c:.2f}")
         
     plot_correlation_coefficients(spotify_id, tiktok_id)

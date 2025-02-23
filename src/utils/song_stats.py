@@ -46,8 +46,8 @@ def get_tiktok_series(song_id: str):
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
         return track_name, last_90_data, artist_name, avatar
 
-def get_itunes_series(song_id: str):
-    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=itunes")
+def get_youtube_series(song_id: str): # video views
+    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=youtube")
     if res.status_code != 200:
         return None
     
@@ -59,8 +59,8 @@ def get_itunes_series(song_id: str):
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
         return track_name, last_90_data, artist_name, avatar
 
-def get_apple_music_series(song_id: str):
-    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=apple_music")
+def get_shazam_series(song_id: str): # shazams
+    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=shazam")
     if res.status_code != 200:
         return None
     
@@ -69,8 +69,21 @@ def get_apple_music_series(song_id: str):
         track_name = parsed_data['trackInfo']['trackName']
         artist_name = parsed_data['trackInfo']['artistName']
         avatar = parsed_data['trackInfo']['avatar']
-        last_90_data = parsed_data['chart']['seriesData'][1]['data'][-90:]
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
+        return track_name, last_90_data, artist_name, avatar
+    
+def get_soundcloud_series(song_id: str): # streams
+    res = requests.get(f"https://data.songstats.com/api/v1/analytics_track/{song_id}/top?source=soundcloud")
+    if res.status_code != 200:
+        return None
+    
+    parsed_data = res.json()
+    if parsed_data['result'] == 'success':
+        track_name = parsed_data['trackInfo']['trackName']
+        artist_name = parsed_data['trackInfo']['artistName']
+        avatar = parsed_data['trackInfo']['avatar']
+        last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
         return track_name, last_90_data, artist_name, avatar
     
 # print(get_spotify_reach_series(song_id='njtwgzci'))
-print(get_apple_music_series(song_id='njtwgzci'))
+print(get_soundcloud_series(song_id='njtwgzci'))
