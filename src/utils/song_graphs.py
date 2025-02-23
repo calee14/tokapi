@@ -35,7 +35,6 @@ def get_tiktok_series(song_id: str):
     if parsed_data['result'] == 'success':
         track_name = parsed_data['trackInfo']['trackName']
         last_90_data = parsed_data['chart']['seriesData'][0]['data'][-90:]
-        print("last_90_data", last_90_data)
         return track_name, last_90_data
 
 def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
@@ -45,7 +44,7 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
 
     if spotify_data is None or tiktok_data is None:
         print("Error fetching one or both data series.")
-        return []
+        return [], []
 
     # Extract timestamps and values (assumes [timestamp, value] structure)
     spotify_timestamps = [entry[0] for entry in spotify_data]
@@ -60,9 +59,14 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     # Normalize the values
     spotify_series = pd.Series(spotify_values)
     tiktok_series = pd.Series(tiktok_values)
-    spotify_normalized = spotify_series / spotify_series.max()
-    tiktok_normalized = tiktok_series / tiktok_series.max()
-
+    
+    def min_max_normalize(lst):
+        min_val = min(lst)
+        max_val = max(lst)
+        return [(x - min_val) / (max_val - min_val) for x in lst]
+    spotify_normalized = min_max_normalize(spotify_series)
+    tiktok_normalized = min_max_normalize(tiktok_series)
+    
     # Calculate the change in normalized values every 2 days
     spotify_changes = spotify_normalized.diff(periods=2).dropna()
     tiktok_changes = tiktok_normalized.diff(periods=2).dropna()
@@ -97,7 +101,11 @@ def find_spikes_in_normalized_series(spotify_id: str, tiktok_id: str):
     spotify_spike_dates = combine_intervals(spotify_spike_dates)
     tiktok_spike_dates = combine_intervals(tiktok_spike_dates)
 
-    return spotify_spike_dates, tiktok_spike_dates
+    # Get the normalized values for each spike
+    spotify_spike_values = [(spotify_normalized.loc[spotify_dates == start].values[0], spotify_normalized.loc[spotify_dates == end].values[0]) for start, end in spotify_spike_dates]
+    tiktok_spike_values = [(tiktok_normalized.loc[tiktok_dates == start].values[0], tiktok_normalized.loc[tiktok_dates == end].values[0]) for start, end in tiktok_spike_dates]
+
+    return (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values)
 
 def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     # Retrieve series data
@@ -130,10 +138,12 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     tiktok_normalized = min_max_normalize(tiktok_series)
 
     # Find spikes
-    spotify_spikes, tiktok_spikes = find_spikes_in_normalized_series(spotify_id, tiktok_id)
+    (spotify_spike_dates, spotify_spike_values), (tiktok_spike_dates, tiktok_spike_values) = find_spikes_in_normalized_series(spotify_id, tiktok_id)
     
-    print("spotify_spikes", spotify_spikes)
-    print("tiktok_spikes", tiktok_spikes)
+    print("spotify_spikes", spotify_spike_dates)
+    print("spotify_spike_values", spotify_spike_values)
+    print("tiktok_spikes", tiktok_spike_dates)
+    print("tiktok_spike_values", tiktok_spike_values)
 
     # Plotting both normalized series using actual dates on the x-axis
     plt.figure(figsize=(10, 5))
@@ -141,12 +151,15 @@ def plot_normalized_series_with_spikes(spotify_id: str, tiktok_id: str):
     plt.plot(tiktok_dates, tiktok_normalized, label='TikTok (normalized)')
 
     # Add markers for spikes
-    for start, end in spotify_spikes:
+    for (start, end), (start_val, end_val) in zip(spotify_spike_dates, spotify_spike_values):
         plt.axvline(x=start, color='blue', linestyle='--', alpha=0.5)
         plt.axvline(x=end, color='blue', linestyle='--', alpha=0.5)
-    for start, end in tiktok_spikes:
+        plt.scatter([start, end], [start_val, end_val], color='blue')
+
+    for (start, end), (start_val, end_val) in zip(tiktok_spike_dates, tiktok_spike_values):
         plt.axvline(x=start, color='red', linestyle='--', alpha=0.5)
         plt.axvline(x=end, color='red', linestyle='--', alpha=0.5)
+        plt.scatter([start, end], [start_val, end_val], color='red')
 
     plt.xlabel('Date')
     plt.ylabel('Normalized Value')
