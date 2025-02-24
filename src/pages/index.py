@@ -16,9 +16,60 @@ song_dict = {'Not Like Us': 'c7vi4fny','Runaway': 'o6czgimx', 'She Will': 'n5i60
 
 # Dropdown menu options
 dropdown_options = [{"label": song_name, "value": song_code} for song_name, song_code in song_dict.items()]
+# Define the hypothesis description with bold text.
+hypothesisDescription = html.Div(
+    html.P([
+        "We believe that TikTok is ",
+        html.B("a music trend setter"),
+        " rather than a mirror of existing musical trends."
+    ], style={'fontSize': '20px', 'textAlign': 'center', 'margin': '10px 0'}),
+    style={'margin': '10px 0'}
+)
 
+# Create bullet points with inline LaTeX expressions for additional metrics.
+measurements = html.Div([
+    html.P("We can figure this out by measuring:", style={'fontSize': '20px', 'textAlign': 'center'}),
+    html.Div(
+        html.Ul([
+            html.Li([
+                "The popularity spike magnitudes of TikTok and Spotify ",
+                dcc.Markdown(
+                    "$\\rightarrow\\ \\text{ correlation coefficient, C}$", 
+                    mathjax=True, 
+                    style={'textAlign': 'center', 'display': 'inline-block'}
+                )
+            ]),
+            html.Li([
+                "When popularity spikes happen relative to each other ",
+                dcc.Markdown(
+                    "$\\rightarrow\\ \\text{ time delay, }\\;t_d$", 
+                    mathjax=True, 
+                    style={'textAlign': 'center', 'display': 'inline-block'}
+                )
+            ])
+        ], style={
+            'fontSize': '20px',
+            'display': 'inline-block',
+            'textAlign': 'left',
+            'listStylePosition': 'inside',
+            'padding': '0'
+        }),
+        style={'textAlign': 'center'}
+    )
+], style={'margin': '10px 0'})
 # Layout with dropdown menu
 layout = html.Div([
+    html.H1("Hypothesis", style={'textAlign': 'center', 'marginTop': '80px', 'marginBottom': '20px'}),
+    hypothesisDescription,
+    measurements,
+    html.H1("Data", style={'textAlign': 'center', 'marginTop': '50px'}),
+    dcc.Markdown(
+        """
+        Using popularity data of songs that are on the TikTok Billboard Top 50 from [Songstats](https://www.songstats.com), we analyzed time delay and correlation coefficients, $C$ and $t_d$.
+        """,
+        mathjax=True,
+        style={'fontSize': '20px', 'textAlign': 'center', 'margin': '20px', 'marginBottom': '50px'}
+    ),
     html.H1("Song Statistics", style={
         'color': 'black',
         'textAlign': 'center',
@@ -33,7 +84,7 @@ layout = html.Div([
     html.Div(id='graphs-container'),
     dcc.Store(id="playing-store", data=False),  # dcc.Store for play state
     html.Div(id='animate-dummy', style={'display': 'none'})  # dummy Div for animation callback
-], style={'margin': '20px', 'paddingBottom': '100px'})
+], style={'margin': '20px', 'paddingBottom': '100px', 'maxWidth': '800px', 'margin': '0 auto'})
 
 @callback(
     Output('graphs-container', 'children'),
@@ -310,16 +361,18 @@ def update_graphs(song_code):
         'zIndex': '1000',
         'padding': '0 20px'
     })
-
+    
 
     return html.Div([
         graph_container,
+        legend_container,
+        description,
         graph_time_delay_container,
         legend_container,
         description,
         bottom_bar,
         store,
-        animate_dummy
+        animate_dummy,
     ])
 
 # Callback to toggle play/pause state and update the play/pause button icon.
