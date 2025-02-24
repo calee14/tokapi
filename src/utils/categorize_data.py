@@ -156,8 +156,10 @@ def categorize_data(spotify_id: str, tiktok_id: str):
 
 #print(categorize_data('o6czgimx', 'o6czgimx'))
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+songs_file_path = os.path.join(current_dir, "songs")
 
-with open("src/utils/songs") as file:
+with open(songs_file_path) as file:
     codes = file.read().splitlines()
 
 total_delay_spot = 0
