@@ -9,7 +9,7 @@ from utils.song_graphs import (
 )
 from utils.time_delay import generate_time_delay_graph
 
-dash.register_page(__name__, path='/', name="About")
+dash.register_page(__name__, path='/', name="Tokapi")
 
 # Dictionary of {song_name: song_code}
 song_dict = {'Not Like Us': 'c7vi4fny','Runaway': 'o6czgimx', 'She Will': 'n5i60mse', 'LOVE. FEAT. ZACARI.': 'a5ztdk8h', 'Dramamine': 'mtzqw83r', 'Glue Song': 'bjux4okf', 'BIRDS OF A FEATHER': 'qm8rn2e4', 'WILDFLOWER': '7ljt0hoe', 'Soft Spot': '14wfukzh', 'Dumb Crasy': 'e0sgixcm', 'Die With A Smile': '1nz06lk3', 'APT.': 'fc8qjl3m', 'That’s So True': 'fb32ov0h', 'blue': 'x85of12m', 'Heavy': 'njtwgzci', 'Like Him (feat. Lola Young)': '4uo2i0yw', 'anything': 'h3sblgqy', 'Faneto': '49gk6oeq', 'Oblivion': 'o92qv3ys', 'DENIAL IS A RIVER': '50rq9nmp', 'Gas Pedal': 'bplr6hso', 'Headlock': '2rg1axdf', 'Abracadabra': '1rb8pz6f', 'you not the same': 'wgd4bvl1', 'No One Noticed (Extended Spanish)': 'tk3w0e74', 'Loco': '1rd5i93x', 'Chest Pain (I Love)': 'emhkbl4c', 'KHÔNG SAO CẢ (feat. 7dnight)': 'ufvjdt73', 'All The Stars (with SZA)': '1qaf6tbw', 'Bad At Love': 'h7v3unlb', 'luther (with sza)': 'a290fxbt', 'peekaboo (feat. azchike)': '5jk2ct1d', '30 For 30 (with Kendrick Lamar)': '7rat3fw1', 'Tweaker': '49fhq386', 'QKThr': '0ectual7', "Big Girls Don't Cry (Personal)": 'h7b5gt1l', 'Shake Dat Ass (Twerk Song)': '3o8bcqis', "Let's Groove": '89rho01p', 'Oh My Angel': 'rfavoyeh', 'Champagne Coast': '2lmeytah', 'Again': 'utsgjrif', 'Azul': 'izgr20qb', 'Sweet Heat Lightning': 'evq3bruf', 'tv off (feat. lefty gunplay)': 'nv4xpgkm', 'You Love Me': 'yuntz7bp', 'White Ferrari': 'vyz39mwr', 'Paper Planes': '30xu5rms', '7/11': 'g2l4db6q', 'come': '1hsuk5ag'}
@@ -57,12 +57,54 @@ measurements = html.Div([
         style={'textAlign': 'center'}
     )
 ], style={'margin': '10px 0'})
+
+results = html.Div([
+    html.H1("Results", style={'textAlign': 'center', 'marginTop': '40px'}),
+    
+    # HTML table with averages and standard deviations in each cell
+    html.Div(
+        html.Table([
+            html.Thead(
+                html.Tr([
+                    html.Th(""),
+                    html.Th("Spotify", style={'padding': '10px', 'border': '1px solid black'}),
+                    html.Th("TikTok", style={'padding': '10px', 'border': '1px solid black'})
+                ], style={'textAlign': 'center', 'fontSize': '20px'})
+            ),
+            html.Tbody([
+                html.Tr([
+                    html.Td("C", style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'}),
+                    html.Td("1.53 ± 1.08", style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'}),
+                    html.Td("2.08 ± 2.08", style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'})
+                ]),
+                html.Tr([
+                    html.Td(dcc.Markdown("$t_d$ (days)", mathjax=True), 
+                            style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'}),
+                    html.Td("7.55 ± 5.86", style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'}),
+                    html.Td("9.21 ± 6.36", style={'padding': '10px', 'border': '1px solid black', 'fontSize': '20px', 'textAlign': 'center'})
+                ])
+            ])
+        ], style={'width': '70%', 'margin': '0 auto', 'borderCollapse': 'collapse'}),
+        style={'marginBottom': '0px'}
+    ),
+    
+    # Explanation text with reduced spacing
+    html.Div([
+        html.P("Since the TikTok 1st coefficient > the Spotify 1st coefficient,"),
+        html.P("this tells us that TikTok may have a bigger influence on Spotify than vice versa."),
+        html.Br(),
+        html.P("Since the TikTok 1st time delay > the Spotify 1st time delay,"),
+        html.P("this tells us that TikTok may have a smaller influence on Spotify than vice versa."),
+        html.Br(),
+        html.P("We cannot confidently conclude that TikTok is a music trend setter in the past 90 days.")
+    ], style={'fontSize': '20px', 'textAlign': 'center', 'marginTop': '10px', 'paddingTop': '0px'})
+], style={'margin': '10px'})
 # Layout with dropdown menu
 layout = html.Div([
-    html.H1("Hypothesis", style={'textAlign': 'center', 'marginTop': '80px', 'marginBottom': '20px'}),
+    html.H1("Hypothesis", style={'textAlign': 'center', 'marginTop': '80px'}),
     hypothesisDescription,
     measurements,
-    html.H1("Data", style={'textAlign': 'center', 'marginTop': '50px'}),
+    html.H1("Data", style={'textAlign': 'center', 'marginTop': '20px'}),
     dcc.Markdown(
         """
         Using popularity data of songs that are on the TikTok Billboard Top 50 from [Songstats](https://www.songstats.com), we analyzed time delay and correlation coefficients, $C$ and $t_d$.
@@ -82,6 +124,7 @@ layout = html.Div([
         style={'width': '50%', 'margin': '0 auto'}
     ),
     html.Div(id='graphs-container'),
+    results,
     dcc.Store(id="playing-store", data=False),  # dcc.Store for play state
     html.Div(id='animate-dummy', style={'display': 'none'})  # dummy Div for animation callback
 ], style={'margin': '20px', 'paddingBottom': '100px', 'maxWidth': '800px', 'margin': '0 auto'})
